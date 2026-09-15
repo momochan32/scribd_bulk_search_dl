@@ -47,4 +47,10 @@ Thumbs.db
 .chrome-runtime-profile/
 .chrome-pdf-check/
 scribd-chrome-profile-*/
+scribd-search-profile-*/
+scribd-bulk-profile-*/
+output/
+*.dmg
+*.spec
+dmg_staging/
 

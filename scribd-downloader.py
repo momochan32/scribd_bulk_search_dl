@@ -14,17 +14,20 @@ Key behaviors:
    stream-based PDF transfer for large documents.
 """
 
+import argparse
 import base64
 import os
 import re
+import sys
 import tempfile
 import time
 from io import BytesIO
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote_plus, unquote, urlparse
 
 from selenium import webdriver
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 
 
 DEFAULT_CDP_TIMEOUT_SECONDS = int(os.getenv("SCRIBD_CDP_TIMEOUT", "600"))
@@ -52,6 +55,17 @@ HEADLESS_ENABLED = os.getenv("SCRIBD_HEADLESS", "1").strip().lower() not in {
 }
 DEFAULT_PAPER_WIDTH_INCHES = 7.25
 DEFAULT_PAPER_HEIGHT_INCHES = 10.5
+
+
+def display_path(path):
+    """Sanitize path representation to avoid leaking system usernames."""
+    if not path:
+        return ""
+    home = os.path.expanduser("~")
+    abs_path = os.path.abspath(os.path.expanduser(str(path)))
+    if abs_path.startswith(home):
+        return "~" + abs_path[len(home):]
+    return abs_path
 
 
 def build_chrome_options(runtime_profile_dir):
@@ -88,7 +102,7 @@ def convert_scribd_link(url):
         The embeddable content URL, or "Invalid Scribd URL" if no document id
         can be extracted.
     """
-    match = re.search(r"https://www\.scribd\.com/(?:document|doc)/(\d+)/", url)
+    match = re.search(r"https?://(?:www\.)?scribd\.com/(?:document|doc)/(\d+)", url)
     if not match:
         return "Invalid Scribd URL"
 
@@ -97,7 +111,7 @@ def convert_scribd_link(url):
 
 def get_filename_from_url(url):
     """
-    Build an output filename from the last URL path segment.
+    Build an output filename from the last URL path segment and doc ID.
 
     Args:
         url: Scribd document URL.
@@ -108,7 +122,16 @@ def get_filename_from_url(url):
     parsed = urlparse(url)
     path = parsed.path.rstrip("/")
     last_segment = path.split("/")[-1] if path else "scribd_document"
-    return f"{unquote(last_segment)}.pdf"
+    last_segment = unquote(last_segment)
+    clean_segment = re.sub(r'[\\/*?:"<>|]', "", last_segment).strip()
+    if not clean_segment:
+        clean_segment = "scribd_document"
+
+    match = re.search(r"/(?:document|doc)/(\d+)", url)
+    doc_id = match.group(1) if match else None
+    if doc_id and not clean_segment.endswith(doc_id):
+        return f"{clean_segment}_{doc_id}.pdf"
+    return f"{clean_segment}.pdf"
 
 
 def configure_command_timeout(driver, timeout_seconds):
@@ -1238,125 +1261,648 @@ def save_pdf_pages_individually(
 
     return os.path.abspath(filename)
 
-def main():
-    """Run the exporter interactively."""
-    input_url = input("Input link Scribd: ").strip()
+def download_scribd_document(
+    url,
+    output_dir=None,
+    driver=None,
+    close_driver=False,
+):
+    """
+    Download a single Scribd document as a PDF.
 
-    converted_url = convert_scribd_link(input_url)
-    pdf_filename = get_filename_from_url(input_url)
+    Args:
+        url: Scribd document URL.
+        output_dir: Optional directory to store the output PDF.
+        driver: Optional existing Selenium WebDriver instance.
+        close_driver: Whether to close the driver after export.
 
-    print(f"Link embed: {converted_url}")
-    print(f"Output filename: {pdf_filename}")
-
+    Returns:
+        Tuple of (saved_path, was_skipped).
+    """
+    converted_url = convert_scribd_link(url)
     if converted_url == "Invalid Scribd URL":
-        print("Error: Please provide a valid Scribd document URL")
-        print(
-            "Example: "
-            "https://www.scribd.com/document/"
-            "123456789/Document-Title"
+        raise ValueError(
+            f"Invalid Scribd document URL: {url}\n"
+            "Example: https://www.scribd.com/document/123456789/Title"
         )
-        print(
-            "Example: "
-            "https://www.scribd.com/doc/"
-            "123456789/Document-Title"
+
+    pdf_filename = get_filename_from_url(url)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+        target_path = os.path.join(output_dir, pdf_filename)
+    else:
+        target_path = pdf_filename
+
+    if os.path.exists(target_path) and os.path.getsize(target_path) > 0:
+        print(f"  [Skip] Document already downloaded: {display_path(target_path)}")
+        return os.path.abspath(target_path), True
+
+    print(f"\nProcessing: {url}")
+    print(f"Link embed: {converted_url}")
+    print(f"Target PDF: {display_path(target_path)}")
+
+    created_profile_dir = None
+    created_driver = False
+
+    try:
+        if driver is None:
+            created_profile_dir = tempfile.TemporaryDirectory(
+                prefix="scribd-chrome-profile-"
+            )
+            print("Starting Chrome browser...")
+            options = build_chrome_options(created_profile_dir.name)
+            driver = webdriver.Chrome(options=options)
+            created_driver = True
+
+        driver.get(converted_url)
+        time.sleep(1)
+
+        hide_cookie_dialogs(driver)
+        print("Cookie dialogs hidden.")
+
+        total_pages = driver.execute_script(
+            """
+            return document.querySelectorAll('.outer_page').length;
+            """
         )
-        raise SystemExit(1)
 
-    with tempfile.TemporaryDirectory(
-        prefix="scribd-chrome-profile-"
-    ) as runtime_profile_dir:
-        driver = None
-
-        try:
-            print("\nStarting Chrome browser...")
-
-            options = build_chrome_options(
-                runtime_profile_dir
+        if total_pages == 0:
+            raise RuntimeError(
+                "No printable document pages were detected."
             )
 
-            driver = webdriver.Chrome(
-                options=options
-            )
+        prepare_document_for_print(driver)
+        inject_print_styles(driver)
 
-            driver.get(converted_url)
-            time.sleep(1)
+        print(f"\nSaving PDF as: {display_path(target_path)}")
+        print("  Export mode: Individual document pages")
+        print("  Margins: None")
+        print("  Headers/Footers: Disabled")
+        print(
+            "  ChromeDriver command timeout: "
+            f"{DEFAULT_CDP_TIMEOUT_SECONDS}s"
+        )
 
-            hide_cookie_dialogs(driver)
-            print("Cookie dialogs hidden.")
+        driver.execute_script("window.scrollTo(0, 0)")
 
-            total_pages = driver.execute_script(
-                """
-                return document.querySelectorAll('.outer_page').length;
-                """
-            )
+        saved_path = save_pdf_pages_individually(
+            driver,
+            target_path,
+        )
 
-            if total_pages == 0:
-                raise RuntimeError(
-                    "No printable document pages "
-                    "were detected."
-                )
+        if not saved_path:
+            raise RuntimeError("PDF export failed.")
 
-            prepare_document_for_print(driver)
+        print(f"PDF saved successfully to: {saved_path}")
+        return saved_path, False
 
-            inject_print_styles(driver)
-
-            print(
-                f"\nSaving PDF as: {pdf_filename}"
-            )
-
-            print(
-                "  Export mode: "
-                "Individual document pages"
-            )
-
-            print("  Margins: None")
-
-            print(
-                "  Headers/Footers: Disabled"
-            )
-
-            print(
-                "  ChromeDriver command timeout: "
-                f"{DEFAULT_CDP_TIMEOUT_SECONDS}s"
-            )
-
-            driver.execute_script(
-                "window.scrollTo(0, 0)"
-            )
-
-            saved_path = (
-                save_pdf_pages_individually(
-                    driver,
-                    pdf_filename,
-                )
-            )
-
-            if not saved_path:
-                raise RuntimeError(
-                    "PDF export failed."
-                )
-
-            print(
-                "PDF saved successfully to: "
-                f"{saved_path}"
-            )
-
-        except (
-            RuntimeError,
-            WebDriverException,
-        ) as error:
-            print(
-                f"Export failed: {error}"
-            )
-
-            raise SystemExit(1)
-
-        finally:
-            if driver is not None:
+    finally:
+        if (created_driver or close_driver) and driver is not None:
+            try:
                 driver.quit()
                 print("Browser closed.")
+            except Exception:
+                pass
+        if created_profile_dir is not None:
+            try:
+                created_profile_dir.cleanup()
+            except Exception:
+                pass
+
+
+def get_downloaded_document_ids(output_dir):
+    """Scan output directory for document IDs of already downloaded PDFs."""
+    if not output_dir or not os.path.exists(output_dir):
+        return set()
+    existing_ids = set()
+    try:
+        for fname in os.listdir(output_dir):
+            if fname.endswith(".pdf"):
+                match = re.search(r"_(\d+)\.pdf$", fname)
+                if match:
+                    existing_ids.add(match.group(1))
+                else:
+                    match2 = re.search(r"^(\d+)\.pdf$", fname)
+                    if match2:
+                        existing_ids.add(match2.group(1))
+    except Exception:
+        pass
+    return existing_ids
+
+
+def search_scribd_documents(
+    keyword,
+    limit=10,
+    existing_ids=None,
+    driver=None,
+    close_driver=False,
+):
+    """
+    Search Scribd for documents matching a keyword and return a list of document dicts.
+
+    Args:
+        keyword: Search query string.
+        limit: Maximum number of document URLs to return.
+        existing_ids: Optional set of document IDs to skip (already downloaded).
+        driver: Optional existing Selenium WebDriver.
+        close_driver: Whether to close driver on completion.
+
+    Returns:
+        List of dicts with keys: 'url', 'title', 'id'.
+    """
+    keyword = keyword.strip()
+    if not keyword:
+        return []
+
+    if existing_ids is None:
+        existing_ids = set()
+
+    print(f"\nSearching Scribd for: '{keyword}' (limit: {limit} documents)...")
+    quoted_query = quote_plus(keyword)
+
+    created_profile_dir = None
+    created_driver = False
+
+    try:
+        if driver is None:
+            created_profile_dir = tempfile.TemporaryDirectory(
+                prefix="scribd-search-profile-"
+            )
+            options = build_chrome_options(created_profile_dir.name)
+            driver = webdriver.Chrome(options=options)
+            created_driver = True
+
+        documents_by_id = {}
+        page = 1
+        max_search_pages = max(10, (limit + 39) // 40 + 5)
+
+        while len(documents_by_id) < limit and page <= max_search_pages:
+            search_url = (
+                f"https://www.scribd.com/search?query={quoted_query}&page={page}"
+            )
+            print(f"Fetching search results page {page}...")
+            driver.get(search_url)
+
+            # Wait for React SPA hydration
+            time.sleep(3)
+            hide_cookie_dialogs(driver)
+
+            links = driver.find_elements(By.TAG_NAME, "a")
+            initial_count = len(documents_by_id)
+            skipped_existing = 0
+
+            for link in links:
+                try:
+                    href = link.get_attribute("href")
+                    if not href:
+                        continue
+
+                    match = re.search(
+                        r"https://www\.scribd\.com/(?:document|doc)/(\d+)(?:/([^/?#]+))?",
+                        href,
+                    )
+                    if not match:
+                        continue
+
+                    doc_id = match.group(1)
+                    slug = match.group(2) or ""
+
+                    if doc_id in existing_ids:
+                        skipped_existing += 1
+                        continue
+
+                    if doc_id not in documents_by_id:
+                        title = link.text.strip()
+                        if not title:
+                            title = link.get_attribute("title") or slug.replace("-", " ")
+
+                        clean_url = (
+                            f"https://www.scribd.com/document/{doc_id}/{slug}"
+                            if slug
+                            else f"https://www.scribd.com/document/{doc_id}"
+                        )
+                        documents_by_id[doc_id] = {
+                            "id": doc_id,
+                            "title": title or f"Document {doc_id}",
+                            "url": clean_url,
+                        }
+
+                        if len(documents_by_id) >= limit:
+                            break
+                except Exception:
+                    continue
+
+            new_found = len(documents_by_id) - initial_count
+            print(
+                f"  Page {page}: found {new_found} new documents "
+                f"(total collected: {len(documents_by_id)})"
+            )
+
+            if new_found == 0:
+                break
+
+            page += 1
+
+        results = list(documents_by_id.values())[:limit]
+        print(f"Total documents found matching '{keyword}': {len(results)}\n")
+        return results
+
+    finally:
+        if (created_driver or close_driver) and driver is not None:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+        if created_profile_dir is not None:
+            try:
+                created_profile_dir.cleanup()
+            except Exception:
+                pass
+
+
+def save_search_results_file(keyword, documents, output_dir="output"):
+    """Save extracted search URLs to a readable text file."""
+    os.makedirs(output_dir, exist_ok=True)
+    slug = re.sub(r"[^\w\-]", "_", keyword.lower()).strip("_")
+    filename = os.path.join(output_dir, f"search_results_{slug}.txt")
+
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(f"# Scribd Search Results for: {keyword}\n")
+        f.write(f"# Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"# Total: {len(documents)}\n\n")
+        for doc in documents:
+            f.write(f"{doc['url']}  # {doc['title']}\n")
+
+    print(f"Saved {len(documents)} document URLs to: {filename}")
+    return filename
+
+
+def load_urls_from_file(filepath):
+    """Read document URLs from a text file, ignoring empty lines and comments."""
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"File not found: {filepath}")
+
+    urls = []
+    with open(filepath, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            match = re.search(r"https?://\S+", line)
+            if match:
+                urls.append(match.group(0))
+            else:
+                urls.append(line)
+    return urls
+
+
+def bulk_download_documents(
+    items_or_urls,
+    output_dir="output",
+    delay_between=3.0,
+):
+    """
+    Download multiple documents in sequence, reusing the Chrome instance when possible.
+
+    Args:
+        items_or_urls: List of URL strings or list of dicts with 'url' key.
+        output_dir: Folder to save PDFs.
+        delay_between: Seconds to pause between downloads.
+
+    Returns:
+        Summary dict of download stats.
+    """
+    urls = []
+    for item in items_or_urls:
+        if isinstance(item, dict) and "url" in item:
+            urls.append(item["url"])
+        elif isinstance(item, str) and item.strip():
+            urls.append(item.strip())
+
+    total = len(urls)
+    if total == 0:
+        print("No URLs provided for bulk download.")
+        return {"total": 0, "success": 0, "skipped": 0, "failed": 0}
+
+    os.makedirs(output_dir, exist_ok=True)
+    print("\n========================================================")
+    print(f" Starting Bulk Download: {total} documents")
+    print(f" Destination Directory: {display_path(output_dir)}")
+    print(f" Delay between files: {delay_between}s")
+    print("========================================================\n")
+
+    stats = {
+        "total": total,
+        "success": 0,
+        "skipped": 0,
+        "failed": 0,
+        "failed_urls": [],
+    }
+
+    driver = None
+    profile_dir = None
+
+    def start_driver():
+        nonlocal driver, profile_dir
+        if driver is not None:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+        if profile_dir is not None:
+            try:
+                profile_dir.cleanup()
+            except Exception:
+                pass
+        profile_dir = tempfile.TemporaryDirectory(prefix="scribd-bulk-profile-")
+        options = build_chrome_options(profile_dir.name)
+        driver = webdriver.Chrome(options=options)
+
+    try:
+        start_driver()
+
+        for idx, url in enumerate(urls, 1):
+            print(f"\n--- [{idx}/{total}] ---")
+            try:
+                saved_path, was_skipped = download_scribd_document(
+                    url,
+                    output_dir=output_dir,
+                    driver=driver,
+                    close_driver=False,
+                )
+                if was_skipped:
+                    stats["skipped"] += 1
+                else:
+                    stats["success"] += 1
+                    if idx < total and delay_between > 0:
+                        print(f"Waiting {delay_between}s before next download...")
+                        time.sleep(delay_between)
+
+            except Exception as exc:
+                print(f"  [ERROR] Failed to download {url}: {exc}")
+                stats["failed"] += 1
+                stats["failed_urls"].append((url, str(exc)))
+                try:
+                    driver.current_url
+                except Exception:
+                    print("  Restarting browser after unexpected failure...")
+                    start_driver()
+
+    finally:
+        if driver is not None:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+            print("Bulk downloader browser closed.")
+        if profile_dir is not None:
+            try:
+                profile_dir.cleanup()
+            except Exception:
+                pass
+
+    print("\n========================================================")
+    print(" Bulk Download Summary")
+    print("========================================================")
+    print(f" Total Requested:         {stats['total']}")
+    print(f" Successfully Downloaded: {stats['success']}")
+    print(f" Skipped (Already existed): {stats['skipped']}")
+    print(f" Failed:                  {stats['failed']}")
+    if stats["failed_urls"]:
+        print("\nFailed Documents:")
+        for failed_url, reason in stats["failed_urls"]:
+            print(f" - {failed_url} (Reason: {reason})")
+    print("========================================================\n")
+
+    return stats
+
+
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Scribd Downloader - Download documents as PDF individually, via search, or in bulk."
+    )
+    parser.add_argument(
+        "-u", "--url",
+        help="Scribd document URL to download.",
+        type=str,
+    )
+    parser.add_argument(
+        "-s", "--search",
+        help="Keyword to search Scribd for and bulk download found documents.",
+        type=str,
+    )
+    parser.add_argument(
+        "-l", "--limit",
+        help="Maximum number of documents to fetch from search (default: 10).",
+        type=int,
+        default=10,
+    )
+    parser.add_argument(
+        "-f", "--file",
+        help="Path to a text file containing Scribd URLs to bulk download (one per line).",
+        type=str,
+    )
+    parser.add_argument(
+        "-o", "--output",
+        help="Output directory for downloaded PDFs (default: 'output' for bulk/search, current directory for single URL).",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--delay",
+        help="Seconds to wait between downloads in bulk mode (default: 3).",
+        type=float,
+        default=3.0,
+    )
+    parser.add_argument(
+        "--no-download",
+        help="When used with --search, only search and save URL list without downloading PDFs.",
+        action="store_true",
+    )
+    return parser.parse_args()
+
+
+def interactive_menu():
+    """Interactive prompt for choosing download mode."""
+    print("\n========================================================")
+    print("               SCRIBD DOCUMENT DOWNLOADER               ")
+    print("========================================================")
+    print(" [1] Cari Kata Kunci & Download Otomatis  (Paling Praktis)")
+    print(" [2] Download dari 1 Link Dokumen Scribd")
+    print(" [3] Download Banyak dari File Teks (urls.txt)")
+    print(" [0] Keluar")
+    print("--------------------------------------------------------")
+    choice = input("Pilih nomor [1-3] (Langsung tekan Enter untuk No 1): ").strip()
+    return choice if choice else "1"
+
+
+def main():
+    """Run the downloader via CLI arguments or interactive menu."""
+    args = parse_arguments()
+
+    # CLI Flag: Single URL
+    if args.url:
+        try:
+            download_scribd_document(
+                args.url,
+                output_dir=args.output,
+                close_driver=True,
+            )
+        except (RuntimeError, WebDriverException, ValueError) as error:
+            print(f"Export failed: {error}")
+            sys.exit(1)
+        return
+
+    # CLI Flag: Bulk from file
+    if args.file:
+        try:
+            urls = load_urls_from_file(args.file)
+        except Exception as error:
+            print(f"Error reading file: {error}")
+            sys.exit(1)
+
+        out_dir = args.output or "output"
+        bulk_download_documents(
+            urls,
+            output_dir=out_dir,
+            delay_between=args.delay,
+        )
+        if sys.platform == "darwin" and os.path.exists(out_dir):
+            os.system(f'open "{os.path.abspath(out_dir)}"')
+        return
+
+    # CLI Flag: Search keyword
+    if args.search:
+        out_dir = args.output or "output"
+        docs = search_scribd_documents(
+            args.search,
+            limit=args.limit,
+            close_driver=True,
+        )
+        if docs:
+            save_search_results_file(args.search, docs, output_dir=out_dir)
+            if not args.no_download:
+                bulk_download_documents(
+                    docs,
+                    output_dir=out_dir,
+                    delay_between=args.delay,
+                )
+                if sys.platform == "darwin" and os.path.exists(out_dir):
+                    os.system(f'open "{os.path.abspath(out_dir)}"')
+        return
+
+    # No CLI flags -> Interactive mode
+    choice = interactive_menu()
+
+    # Opsi 1: Cari Kata Kunci & Download Otomatis
+    if choice == "1":
+        keyword = input("\n🔍 Masukkan kata kunci pencarian (misal: Python Dasar): ").strip()
+        if not keyword:
+            print("❌ Kata kunci tidak boleh kosong.")
+            return
+
+        limit_input = input("📄 Mau download berapa dokumen? [tekan Enter untuk 5]: ").strip()
+        limit = (
+            int(limit_input)
+            if limit_input.isdigit() and int(limit_input) > 0
+            else 5
+        )
+
+        default_out = os.path.expanduser("~/Downloads/Scribd")
+        folder_prompt = input(
+            "📁 Simpan file ke folder mana? [tekan Enter untuk '~/Downloads/Scribd']: "
+        ).strip()
+        out_dir = os.path.expanduser(folder_prompt) if folder_prompt else default_out
+
+        existing_ids = get_downloaded_document_ids(out_dir)
+        if existing_ids:
+            print(f"ℹ️ Ditemukan {len(existing_ids)} file PDF yang sudah pernah diunduh di folder tujuan.")
+            print("   Sistem akan otomatis melewati file-file lama dan mencari dokumen baru.")
+
+        print(f"\nSedang mencari {limit} dokumen baru untuk kata kunci '{keyword}'...")
+        docs = search_scribd_documents(
+            keyword,
+            limit=limit,
+            existing_ids=existing_ids,
+            close_driver=True,
+        )
+        if not docs:
+            print(f"❌ Tidak ditemukan dokumen baru untuk kata kunci '{keyword}'.")
+            return
+
+        save_search_results_file(keyword, docs, output_dir=out_dir)
+
+        print(f"\n🚀 Memulai download {len(docs)} file PDF ke folder '{display_path(out_dir)}'...")
+        bulk_download_documents(
+            docs,
+            output_dir=out_dir,
+            delay_between=args.delay if args.delay else 2.5,
+        )
+
+        # Otomatis buka folder di Mac Finder agar pengguna langsung melihat file PDF
+        if sys.platform == "darwin" and os.path.exists(out_dir):
+            print(f"📂 Membuka folder hasil download di Finder...")
+            os.system(f'open "{os.path.abspath(out_dir)}"')
+
+    # Opsi 2: Download 1 Dokumen dari Link URL
+    elif choice == "2":
+        input_url = input("\n🔗 Masukkan link dokumen Scribd: ").strip()
+        if not input_url:
+            print("❌ Link tidak boleh kosong.")
+            return
+
+        default_out = os.path.expanduser("~/Downloads/Scribd")
+        folder_prompt = input(
+            "📁 Simpan file ke folder mana? [tekan Enter untuk '~/Downloads/Scribd']: "
+        ).strip()
+        out_dir = os.path.expanduser(folder_prompt) if folder_prompt else default_out
+
+        try:
+            saved_path, _ = download_scribd_document(
+                input_url,
+                output_dir=out_dir,
+                close_driver=True,
+            )
+            if sys.platform == "darwin" and os.path.exists(out_dir):
+                os.system(f'open "{os.path.abspath(out_dir)}"')
+        except (RuntimeError, WebDriverException, ValueError) as error:
+            print(f"Export failed: {error}")
+            sys.exit(1)
+
+    # Opsi 3: Bulk Download dari file teks (urls.txt)
+    elif choice == "3":
+        default_file = "urls.txt"
+        file_input = input(
+            f"\n📄 Masukkan nama file daftar URL [tekan Enter untuk '{default_file}']: "
+        ).strip()
+        filepath = file_input if file_input else default_file
+
+        try:
+            urls = load_urls_from_file(filepath)
+        except Exception as error:
+            print(f"❌ Error: {error}")
+            return
+
+        print(f"Berhasil membaca {len(urls)} URL dari {filepath}")
+        default_out = os.path.expanduser("~/Downloads/Scribd")
+        folder_prompt = input(
+            "📁 Simpan file ke folder mana? [tekan Enter untuk '~/Downloads/Scribd']: "
+        ).strip()
+        out_dir = os.path.expanduser(folder_prompt) if folder_prompt else default_out
+
+        bulk_download_documents(urls, output_dir=out_dir, delay_between=args.delay)
+        if sys.platform == "darwin" and os.path.exists(out_dir):
+            os.system(f'open "{os.path.abspath(out_dir)}"')
+
+    elif choice in ("0", "exit", "q"):
+        print("Sampai jumpa!")
+        return
+    else:
+        print("Pilihan tidak valid.")
 
 
 if __name__ == "__main__":
     main()
-    
+
+

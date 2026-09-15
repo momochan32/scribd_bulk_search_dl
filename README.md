@@ -1,262 +1,149 @@
-<p align="center">
-  <img src="assets/scribd.svg" alt="Scribd" width="200">
-</p>
-
-<h1 align="center">Scribd Downloader</h1>
+# Momo Rescribd — Scribd Bulk Search & Downloader
 
 <p align="center">
-  <b>Download Scribd documents as PDF for free - Fast, automated, and runs in background!</b>
+  <b>Unduh Dokumen Scribd Sebagai PDF Bersih — Pencarian Otomatis Kata Kunci, Bulk Download, & Antarmuka Grafis Praktis</b>
 </p>
 
 <p align="center">
-  <a href="https://www.python.org/downloads/">
-    <img src="https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+">
-  </a>
-  <a href="https://pypi.org/project/selenium/">
-    <img src="https://img.shields.io/badge/Selenium-4.0+-green?style=for-the-badge&logo=selenium&logoColor=white" alt="Selenium 4.0+">
-  </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/badge/License-MIT-orange?style=for-the-badge" alt="MIT License">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://buymeacoffee.com/mrsami">
-    <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee">
-  </a>
-  <a href="https://github.com/sponsors/fullstackusama">
-    <img src="https://img.shields.io/badge/Sponsor-ea4aaa?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="GitHub Sponsors">
-  </a>
-  <a href="https://github.com/fullstackusama/scribd-downloader/stargazers">
-    <img src="https://img.shields.io/github/stars/fullstackusama/scribd-downloader?style=for-the-badge&logo=github" alt="GitHub Stars">
-  </a>
+  <img src="https://img.shields.io/badge/Python-3.11+-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey?style=for-the-badge" alt="Multi-Platform">
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
 </p>
 
 ---
 
-## Features
+## 📖 Apa Itu Momo Rescribd?
 
-- **One-click download** - Just paste the Scribd URL and get your PDF
-- **Supports both Scribd URL styles** - Works with `/document/...` and legacy `/doc/...` links
-- **Runs in background** - Headless Chrome, no browser window pops up
-- **No scrolling required** - Loads Scribd page data directly instead of simulating page-by-page scrolling
-- **Clean PDFs** - No cookie banners, toolbars, or watermarks
-- **Bounded-memory export** - Keeps only a configurable batch of fully loaded pages in Chrome at once
-- **Disk-spooled merge** - Writes each rendered page to temporary storage before combining the final PDF with `pypdf`
-- **Large document support** - Verified with image-heavy documents containing up to 2,552 pages
-- **Better math rendering** - Preserves Scribd layout classes needed by equations and SVG content
-- **Exact pagination** - Validates that every Scribd page produces exactly one PDF sheet
-- **Dynamic page size** - Detects each rendered page's dimensions instead of forcing one fixed sheet size
-- **Auto filename** - PDF named after the document URL automatically
-- **No login required** - Works without Scribd account
+**Momo Rescribd (`scribd_bulk_search_dl`)** adalah perangkat lunak otomasi pintar yang dirancang untuk mencari, mengekstrak, dan mengunduh dokumen dari Scribd secara massal (*bulk download*) dan menyimpannya sebagai file **PDF berkualitas tinggi**.
+
+Aplikasi ini dibuat agar dapat digunakan oleh siapa saja — mulai dari pengguna awam non-teknis yang menginginkan kemudahan klik tanpa terminal, hingga pengembang atau peneliti yang membutuhkan antarmuka *Command-Line Interface* (CLI) untuk otomatisasi skala besar.
 
 ---
 
-## Requirements
+## ✨ Fitur Utama
 
-- Python 3.10 or higher
-- Google Chrome browser installed
-- Chrome WebDriver (auto-managed by Selenium)
-
----
-
-## Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/fullstackusama/scribd-downloader.git
-   cd scribd-downloader
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+- 🔍 **Pencarian Kata Kunci Otomatis (*Smart Keyword Query*)**:
+  Cukup ketikkan kata kunci yang Anda cari (misalnya: `"Pupuk Kaltim"`, `"Akuntansi Keuangan"`, `"Data Science"`), sistem akan otomatis menjelajahi direktori pencarian Scribd (termasuk pagination halaman 1, 2, 3, dst.) hingga mencapai target jumlah dokumen yang Anda inginkan.
+- 📑 **Konversi PDF Rapi & Bersih**:
+  Menghilangkan elemen antarmuka yang mengganggu seperti toolbar, banner cookie, overlay berlangganan, serta iklan. Dokumen dikonversi menjadi lembaran PDF asli yang jernih.
+- ⚡ **Deduplikasi Dokumen (*Smart Resume & Deduplication*)**:
+  Sistem secara otomatis memeriksa dokumen yang sudah pernah diunduh sebelumnya di folder tujuan. Jika dokumen sudah ada, sistem melewatinya dan otomatis mencari dokumen baru berikutnya agar tidak terjadi pengunduhan ganda atau pemborosan kuota.
+- 🖥️ **Antarmuka Grafis Modern (GUI)**:
+  Dilengkapi antarmuka desktop **Momo Rescribd** yang mudah digunakan tanpa perlu mengetik perintah apapun di terminal.
+- 📦 **Installer Standalone macOS (.app & .dmg)**:
+  Tersedia dalam format `.dmg` siap pasang yang mendukung macOS 11 (Big Sur), macOS 12 (Monterey), macOS 13 (Ventura), macOS 14 (Sonoma), hingga macOS 15 (Sequoia).
+- 🔄 **Tiga Mode Pengunduhan Fleksibel**:
+  1. **Cari Kata Kunci & Download Otomatis** (Paling praktis).
+  2. **Download dari 1 Link URL Tunggal**.
+  3. **Download Massal dari File Teks** (daftar link `urls.txt`).
+- 🔒 **Privasi Terjaga**:
+  Folder penyimpanan default aman dan bersih (tanpa mengekspos username sistem), pengguna bebas memilih folder penyimpanan sendiri.
 
 ---
 
-## Usage
+## 🚀 Cara Penggunaan
 
-1. **Run the script**
-   ```bash
-   python scribd-downloader.py
-   ```
+### Cara 1: Menggunakan Aplikasi Desktop macOS (Paling Direkomendasikan)
 
-2. **Paste the Scribd document URL** when prompted:
-   ```
-   Input link Scribd: https://www.scribd.com/document/123456789/Document-Title
-   ```
-
-   Legacy Scribd URLs also work:
-   ```
-   Input link Scribd: https://www.scribd.com/doc/123456789/Document-Title
-   ```
-
-3. **Wait for the download** - The script will:
-   - Open the document in headless Chrome
-   - Load document pages directly in bounded batches
-   - Release each batch from Chrome after printing to control memory use
-   - Remove unwanted elements (toolbars, cookie banners)
-   - Spool individual pages to temporary storage and merge the final PDF
-   - Save the PDF in the current directory
-
-4. **Done!** Your PDF will be saved with the document name from the URL.
+1. Buka file instalasi `Momo_Rescribd.dmg`.
+2. Geser / Drag ikon **Momo Rescribd** ke folder **Applications**.
+3. Buka **Momo Rescribd** dari Launchpad atau Finder.
+4. Pilih cara pengunduhan:
+   - Masukkan kata kunci pencarian dan jumlah target dokumen.
+   - Atau tempelkan link URL dokumen Scribd.
+   - Tentukan folder penyimpanan (atau biarkan kosong untuk otomatis menyimpan ke folder `Downloads/Momo_Rescribd`).
+5. Klik tombol **🚀 Mulai Download**.
+6. Setelah selesai, klik **📂 Buka Folder Hasil** untuk langsung melihat semua file PDF yang berhasil diunduh.
 
 ---
 
-## Example Output
+### Cara 2: Menggunakan Launcher Cepat (`Mulai_Download.command`)
 
-```text
-$ python scribd-downloader.py
-Input link Scribd: https://www.scribd.com/document/903361807/WorkdaySimpleIntegrations-EIB-31v2
-
-Link embed: https://www.scribd.com/embeds/903361807/content
-Output filename: WorkdaySimpleIntegrations-EIB-31v2.pdf
-
-Starting Chrome browser...
-Cookie dialogs hidden.
-Top toolbar removed.
-Bottom toolbar removed.
-Adjusted 1 scroll containers for print.
-Print CSS injected.
-
-Saving PDF as: WorkdaySimpleIntegrations-EIB-31v2.pdf
-  Export mode: Individual document pages
-  Margins: None
-  Headers/Footers: Disabled
-  ChromeDriver command timeout: 600s
-Exporting 316 document pages in bounded batches of 8...
-  Loading page batch 1-8/316...
-  Page 1/316 1002x1296px -> 10.438"x13.500"
-    OK: exactly 1 PDF sheet
-  ...
-Merging 316 disk-spooled PDF pages...
-PDF saved successfully to: C:\Users\...\WorkdaySimpleIntegrations-EIB-31v2.pdf
-Browser closed.
-```
+Bagi pengguna Mac yang ingin menjalankan skrip secara langsung:
+1. Klik 2x file `Mulai_Download.command` di Finder.
+2. Terminal akan terbuka dan menampilkan menu pilihan interaktif berbahasa Indonesia.
+3. Masukkan kata kunci pencarian dan jumlah dokumen yang diinginkan.
+4. Sistem akan otomatis mengunduh dan membuka folder hasil di Finder saat selesai.
 
 ---
 
-## PDF Settings
+### Cara 3: Menggunakan Command-Line (CLI)
 
-| Setting | Value |
-|---------|-------|
-| Page Size | Detected dynamically from Scribd's rendered page |
-| Margins | None (0) |
-| Headers/Footers | Disabled |
-| Background Graphics | Enabled |
+Bagi pengembang atau pengguna tingkat lanjut:
 
----
-
-## How It Works
-
-1. **URL Conversion** - Converts Scribd document URL to embeddable format
-2. **Headless Browser** - Opens Chrome in background (invisible)
-3. **Batched Page Loading** - Loads a small group of Scribd pages and their images directly without scrolling
-4. **Cleanup** - Removes toolbars, cookie banners, and overlays while preserving Scribd layout classes
-5. **Per-page Export** - Detects each page's rendered size and prints exactly one PDF sheet through Chrome DevTools Protocol
-6. **Memory Release** - Removes the completed batch from Chrome and requests garbage collection
-7. **Disk-spooled Merge** - Combines the temporary one-page PDFs into the final document with `pypdf`
-8. **Auto Close** - Browser closes automatically after saving
-
----
-
-## Benchmarks
-
-Reference results from one Windows machine are shown below. Performance varies with network speed, document complexity, CPU, RAM, Chrome version, and storage speed.
-
-| Document | Pages | Total Time | Output Size | Blank Pages | Peak Combined RAM |
-|----------|------:|-----------:|------------:|------------:|------------------:|
-| CSS Solved Past Papers | 359 | 58.36 seconds | 228.49 MB | 0 | 1.47 GB |
-| Manual de Servicio MX-305 | 2,552 | 14 minutes 12 seconds | 237.28 MB | 0 | 2.46 GB |
-
-The batch size was `8` in both tests. Long documents still take time because Chrome must print every page individually, but fully loaded browser content is kept to one batch at a time.
-
----
-
-## Troubleshooting
-
-### "ChromeDriver not found" error
-The script uses Selenium Manager to auto-download ChromeDriver. If you face issues:
+#### 1. Persiapan Lingkungan
+Pastikan Anda memiliki **Python 3.11+** dan browser **Google Chrome**:
 ```bash
-pip install --upgrade selenium
+# Clone repository
+git clone https://github.com/momochan32/scribd_bulk_search_dl.git
+cd scribd_bulk_search_dl
+
+# Buat virtual environment & install dependensi
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### PDF not saving
-- Ensure you have write permissions in the current directory
-- Check if the Scribd URL is valid and accessible
-- For very large documents, increase `SCRIBD_CDP_TIMEOUT` (default: `600`)
-
-### Blank pages in PDF
-- Some documents may have DRM protection
-- Try increasing `SCRIBD_PAGE_LOAD_TIMEOUT` if page images load slowly
-- If a document still renders incorrectly, try visible mode with `SCRIBD_HEADLESS=0`
-
-### Very large documents
-- Ensure the drive containing your temporary directory has enough free space for individual page PDFs
-- Reduce `SCRIBD_EXPORT_BATCH_SIZE` if Chrome uses too much memory
-- Increase `SCRIBD_PAGE_LOAD_TIMEOUT` when slow image assets time out
-- Long documents still take time because each page is printed and validated separately
-
-### Large, image-heavy, or math-heavy documents
-You can tune the export with environment variables:
-
-```powershell
-$env:SCRIBD_CDP_TIMEOUT="900"
-$env:SCRIBD_PAGE_LOAD_TIMEOUT="180"
-$env:SCRIBD_EXPORT_BATCH_SIZE="4"
-python scribd-downloader.py
+#### 2. Menjalankan Antarmuka GUI
+```bash
+python3 momo_rescribd_gui.py
 ```
 
-Useful variables:
+#### 3. Menjalankan CLI Interaktif
+```bash
+python3 scribd-downloader.py
+```
 
-- `SCRIBD_CDP_TIMEOUT` - ChromeDriver command timeout in seconds for `Page.printToPDF`
-- `SCRIBD_PAGE_LOAD_TIMEOUT` - Maximum direct page-loading time in seconds (default: `120`)
-- `SCRIBD_EXPORT_BATCH_SIZE` - Maximum fully loaded pages kept in Chrome at once (default: `8`)
-- `SCRIBD_HEADLESS=0` - Run with a visible browser when debugging rendering issues locally
+#### 4. Menjalankan Langsung via Argumen Terminal
+```bash
+# Cari kata kunci dan unduh 10 dokumen sekaligus
+python3 scribd-downloader.py --search "Manajemen Bisnis" --limit 10
 
----
+# Download 1 dokumen dari URL spesifik
+python3 scribd-downloader.py --url "https://www.scribd.com/document/123456789/Judul-Dokumen"
 
-## Contributing
-
-Contributions are welcome! Feel free to:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+# Bulk download dari file teks berisi daftar tautan
+python3 scribd-downloader.py --file urls.txt --delay 2.5
+```
 
 ---
 
-## Support the Project
+## ⚙️ Ringkasan Opsi CLI
 
-If you find this tool useful, consider supporting its development:
-
-<p align="center">
-  <a href="https://buymeacoffee.com/mrsami">
-    <img src="assets/buymeacoffee.svg" alt="Buy Me A Coffee" width="40" height="40">
-  </a>
-</p>
-
----
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+| Argumen | Opsi Pendek | Keterangan | Default |
+|---|---|---|---|
+| `--search` | `-s` | Kata kunci pencarian di Scribd | `None` |
+| `--limit` | `-l` | Jumlah maksimal dokumen baru yang diunduh | `10` |
+| `--url` | `-u` | Mengunduh satu tautan dokumen Scribd | `None` |
+| `--file` | `-f` | Path ke file teks berisi daftar URL | `None` |
+| `--output` | `-o` | Folder direktori tujuan penyimpanan PDF | `output` |
+| `--delay` | `-d` | Jeda waktu (detik) antar unduhan file | `2.5` |
+| `--no-download` | | Hanya mencari & menyimpan URL ke file `.txt` | `False` |
 
 ---
 
-## Disclaimer
+## 🛠️ Cara Kerja Sistem (How It Works)
 
-This tool is for educational purposes only. Please respect copyright laws and Scribd's Terms of Service. Only download documents you have the right to access.
+1. **Query & Discovery**: Mengakses mesin pencari Scribd dengan pagination bertingkat dan mengumpulkan URL dokumen yang unik.
+2. **Deduplication Check**: Memindai ID dokumen pada folder tujuan agar file yang sudah pernah diunduh tidak diambil kembali.
+3. **Headless Engine**: Menjalankan Google Chrome secara otomatis di latar belakang (*headless mode*).
+4. **DOM Sanitization**: Membersihkan seluruh banner, pelindung, dan antarmuka baca untuk menyisakan konten dokumen murni.
+5. **Page Rendering & CDP Print**: Mengukur dimensi tiap halaman dokumen dan mencetak lembaran dokumen secara presisi melalui Chrome DevTools Protocol (CDP).
+6. **PDF Assembly**: Menggabungkan seluruh lembar dokumen yang telah dirender menjadi satu file PDF utuh menggunakan `pypdf`.
 
 ---
 
-<p align="center">
-  Made with ❤️ by <a href="https://github.com/fullstackusama">Usama Nazir</a>
-</p>
+## 📄 Lisensi (License)
 
-<p align="center">
-  If you find this useful, please consider giving it a ⭐
-</p>
+Proyek ini dilisensikan di bawah lisensi **MIT License** — Anda bebas menggunakan, memodifikasi, dan mendistribusikan kode ini untuk keperluan yang sah sesuai ketentuan lisensi.
+
+---
+
+## ⚠️ Disclaimer (Pernyataan Penyangkalan)
+
+> **PENTING**:
+> Perangkat lunak ini dibuat dan dipublikasikan **hanya sebagai media pembelajaran saja (*educational purpose*)** dalam bidang otomasi peramban web (*browser automation*) dan manipulasi dokumen digital, serta **bukan dilakukan sebagai kegiatan ilegal**.
+> 
+> Harap selalu menghormati hak cipta (*copyright*), hak kekayaan intelektual penulis asli, serta Syarat & Ketentuan Layanan (*Terms of Service*) dari platform Scribd. 
+> 
+> **Penulis/Pengembang tidak bertanggung jawab sedikit pun atas segala tindakan, kerugian, pelanggaran hak cipta, atau penyalahgunaan apa pun yang dilakukan oleh pengguna.** Segala risiko dan konsekuensi hukum yang timbul dari penggunaan alat ini sepenuhnya merupakan tanggung jawab masing-masing individu pengguna.
