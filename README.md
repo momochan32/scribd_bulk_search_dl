@@ -43,6 +43,19 @@ Aplikasi ini didesain dengan antarmuka grafis (GUI) modern yang elegan dan ramah
   - **Windows**: Disertai skrip otomatis `build_windows.bat` dan file spesifikasi `Momo_Rescribd.spec` untuk membuat file `dist\Momo Rescribd\Momo Rescribd.exe`.
 - 🔒 **Privasi Terjaga**:
   Folder simpan default bersih (`~/Downloads/Momo_Rescribd`), tidak pernah mengekspos username sistem pada log konsol maupun antarmuka.
+- 🔬 **Riset Solcoat — Laporan dari PDF Hasil Unduhan (tanpa AI)**:
+  Tab **Riset Solcoat** membaca semua PDF di folder hasil unduhan per halaman (text layer, atau OCR untuk halaman scan / font rusak), menautkan angka ke peralatan (primary reformer, furnace, boiler, burner, dll.), lalu menyusun **laporan PDF** berformat hijau Solcoat dan **file Excel** berisi semua fakta beserta nama file dan nomor halaman sumbernya. Data bahasa OCR (±5 MB) diunduh otomatis saat pertama dipakai; Tesseract tidak perlu dipasang. Detail teknis, CLI, dan batasan ada di [`research/README.md`](research/README.md).
+
+---
+
+## 🔬 Cara Memakai Riset Solcoat
+
+1. Unduh dokumen seperti biasa (mis. kata kunci "Pupuk Kaltim", "Petrokimia Gresik").
+2. Buka tab **Riset Solcoat**, pastikan *Folder PDF sumber* mengarah ke folder hasil unduhan.
+3. Klik **Mulai Riset**. Progres tampil di konsol tab *Riset Solcoat*.
+4. Setelah selesai, klik **Buka Laporan PDF** atau **Buka Excel**. Hasil tersimpan di `<folder sumber>_Riset_Solcoat`.
+
+Pemindaian pertama menjalankan OCR (±2 menit untuk ±5.000 halaman); pemindaian berikutnya memakai cache dan hanya butuh belasan detik. Semua angka berstatus **belum diverifikasi** — cocokkan ke halaman sumber sebelum dipakai di dokumen klien.
 
 ---
 

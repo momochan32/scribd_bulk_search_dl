@@ -5,11 +5,18 @@ Cross-platform: builds .app on macOS and .exe on Windows.
 """
 import sys
 import os
+from pathlib import Path
+
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('assets', 'assets')]
+# The Solcoat research feature lives in research/solcoat_research; its keyword
+# lexicon is a data file loaded next to lexicon.py, so ship it in the same folder.
+datas = [('assets', 'assets'), ('research/solcoat_research/lexicon.yaml', 'solcoat_research')]
 binaries = []
-hiddenimports = []
+hiddenimports = ['solcoat_research'] + [
+    f'solcoat_research.{module.stem}' for module in Path('research/solcoat_research').glob('*.py')
+    if module.stem != '__init__'
+]
 
 # Collect all selenium, pypdf, customtkinter, and PIL modules and assets
 tmp_ret = collect_all('selenium')
@@ -24,6 +31,10 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('PIL')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+for package in ('pymupdf', 'reportlab', 'openpyxl', 'certifi'):
+    tmp_ret = collect_all(package)
+    datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
 icon_file = 'assets/momo_rescribd.ico' if sys.platform == 'win32' else 'assets/momo_rescribd.icns'
 
 # UPX mangles Mach-O headers and invalidates the ad-hoc code signature that
@@ -33,7 +44,7 @@ use_upx = sys.platform != 'darwin'
 
 a = Analysis(
     ['momo_rescribd_gui.py'],
-    pathex=[],
+    pathex=['research'],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
@@ -87,8 +98,8 @@ if sys.platform == 'darwin':
             'NSHighResolutionCapable': True,
             'CFBundleName': 'Momo Rescribd',
             'CFBundleDisplayName': 'Momo Rescribd',
-            'CFBundleShortVersionString': '1.1.0',
-            'CFBundleVersion': '1.1.0',
+            'CFBundleShortVersionString': '1.2.0',
+            'CFBundleVersion': '1.2.0',
             'LSMinimumSystemVersion': '11.0',
             'NSHumanReadableCopyright': 'Copyright (c) momochan32',
         },

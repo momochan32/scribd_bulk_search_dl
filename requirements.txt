@@ -8,3 +8,9 @@ pypdf>=6.0
 customtkinter==6.0.0
 pillow>=10.0.0
 darkdetect>=0.8.0
+# Riset Solcoat (tab 'Riset Solcoat'): baca PDF + OCR, laporan PDF/Excel
+pymupdf>=1.24
+reportlab>=4.0
+openpyxl>=3.1
+pyyaml>=6.0
+certifi

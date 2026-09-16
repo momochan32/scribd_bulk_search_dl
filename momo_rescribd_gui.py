@@ -8,6 +8,7 @@ Cross-platform: macOS, Windows, and Linux.
 """
 
 import logging
+import multiprocessing
 import os
 import queue
 import random
@@ -25,6 +26,7 @@ import customtkinter as ctk
 from PIL import Image
 
 import scribd_engine as engine
+from research_panel import TAB_NAME as RESEARCH_TAB_NAME, ResearchPanel
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +316,7 @@ class MomoRescribdApp(ctk.CTk):
         # 1. Header Area with Astronaut Mascot Logo
         self._build_header(self.main_container)
 
-        # 2. Main Tabview (Pencarian Kata Kunci, Tautan Tunggal, Berkas URL)
+        # 2. Main Tabview (Pencarian Kata Kunci, Tautan Tunggal, Berkas URL, Riset Solcoat)
         self._build_tabs(self.main_container)
 
         # 3. Settings Card (Delay Range & Default Folder)
@@ -395,6 +397,10 @@ class MomoRescribdApp(ctk.CTk):
         # Tab 3: URL List File
         self.tab_file = self.tabview.add("Berkas Daftar URL")
         self._build_file_tab(self.tab_file)
+
+        # Tab 4: Research report from downloaded PDFs (text layer + OCR, no AI)
+        self.tab_research = self.tabview.add(RESEARCH_TAB_NAME)
+        self.research_panel = ResearchPanel(self, self.tab_research, FONT_FAMILY_MAIN)
 
     def _build_search_tab(self, tab):
         # Top Controls Bar
@@ -1297,6 +1303,8 @@ class MomoRescribdApp(ctk.CTk):
                 except Exception:
                     pass
 
+        self.research_panel.poll()
+
         # Also drain solo queue if active
         if not self.solo_queue.empty():
             active_name = self._get_active_tab_name()
@@ -1318,6 +1326,8 @@ class MomoRescribdApp(ctk.CTk):
     # ---------------------------------------------------------------------------
     def _any_task_running(self):
         if self.solo_thread and self.solo_thread.is_alive():
+            return True
+        if self.research_panel.is_running():
             return True
         return any(t.thread and t.thread.is_alive() for t in self.tasks)
 
@@ -1496,6 +1506,8 @@ class MomoRescribdApp(ctk.CTk):
             self.solo_stop_event.set()
             self.solo_queue.put("\n[STOP] Sinyal henti dikirim...\n")
 
+        self.research_panel.stop()
+
         self.btn_stop_all.configure(state="disabled", text="MENGHENTIKAN...")
         self.update_idletasks()
 
@@ -1506,6 +1518,9 @@ class MomoRescribdApp(ctk.CTk):
             return
 
         active_tab_mode = self.tabview.get()
+        if active_tab_mode == RESEARCH_TAB_NAME:
+            self.research_panel.start()
+            return
 
         # Parse Global Delay Range
         try:
@@ -1792,4 +1807,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # The research scan uses a process pool; frozen .app/.exe builds re-launch this
+    # executable for each worker, and freeze_support() routes those launches.
+    multiprocessing.freeze_support()
     main()
