@@ -27,17 +27,9 @@ pip install -r requirements.txt
 pip install pyinstaller pillow
 
 echo [3/4] Mengompilasi Momo Rescribd menjadi file EXE mandiri...
-pyinstaller --name "Momo Rescribd" ^
-    --windowed ^
-    --icon "assets/momo_rescribd.ico" ^
-    --add-data "assets;assets" ^
-    --collect-all selenium ^
-    --collect-all pypdf ^
-    --collect-all customtkinter ^
-    --collect-all PIL ^
-    --clean ^
-    --noconfirm ^
-    momo_rescribd_gui.py
+REM Konfigurasi build ada di Momo_Rescribd.spec agar build lokal dan build CI
+REM (.github/workflows/build-windows.yml) selalu menghasilkan hal yang sama.
+pyinstaller --noconfirm --clean Momo_Rescribd.spec
 
 if %ERRORLEVEL% equ 0 (
     echo.
