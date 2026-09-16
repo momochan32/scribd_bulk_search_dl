@@ -1324,36 +1324,38 @@ class MomoRescribdApp(ctk.CTk):
     # ---------------------------------------------------------------------------
     # Concurrency Execution & Process Handlers
     # ---------------------------------------------------------------------------
-    def _any_task_running(self):
+    def _any_download_running(self):
+        """Unduhan saja. Riset Solcoat sengaja tidak dihitung agar unduhan tetap bisa dimulai saat riset berjalan."""
         if self.solo_thread and self.solo_thread.is_alive():
-            return True
-        if self.research_panel.is_running():
             return True
         return any(t.thread and t.thread.is_alive() for t in self.tasks)
 
+    def _any_task_running(self):
+        return self._any_download_running() or self.research_panel.is_running()
+
     def _update_global_ui_state(self):
         running = self._any_task_running()
+        downloading = self._any_download_running()
+        researching = self.research_panel.is_running()
         if running:
-            self.btn_start_all.configure(state="disabled", fg_color="#475569")
-            self.btn_stop_all.configure(state="normal", fg_color="#dc2626")
+            if downloading:
+                self.btn_start_all.configure(state="disabled", fg_color="#475569")
+            else:
+                self.btn_start_all.configure(state="normal", fg_color="#2563eb")
+            self.btn_stop_all.configure(state="normal", fg_color="#dc2626", text="Hentikan Semua")
             self.progress_bar.start()
 
             active_count = sum(1 for t in self.tasks if t.thread and t.thread.is_alive())
             if active_count > 0:
-                self.global_status_badge.configure(
-                    text=f"{active_count} BERJALAN BERSAMAAN",
-                    text_color="#f59e0b",
-                    fg_color="#78350f",
-                )
+                badge = f"{active_count} BERJALAN BERSAMAAN" + (" + RISET" if researching else "")
+            elif downloading:
+                badge = "BERJALAN" + (" + RISET" if researching else "")
             else:
-                self.global_status_badge.configure(
-                    text="BERJALAN",
-                    text_color="#f59e0b",
-                    fg_color="#78350f",
-                )
+                badge = "RISET BERJALAN"
+            self.global_status_badge.configure(text=badge, text_color="#f59e0b", fg_color="#78350f")
         else:
             self.btn_start_all.configure(state="normal", fg_color="#2563eb")
-            self.btn_stop_all.configure(state="disabled", fg_color="#475569")
+            self.btn_stop_all.configure(state="disabled", fg_color="#475569", text="Hentikan Semua")
             self.progress_bar.stop()
             self.progress_bar.set(0)
 
@@ -1514,10 +1516,10 @@ class MomoRescribdApp(ctk.CTk):
     def _start_all_processes(self):
         """Starts ALL valid keyword tasks simultaneously in parallel threads."""
         self.update_idletasks()
-        if self._any_task_running():
+        active_tab_mode = self.tabview.get()
+        if active_tab_mode != RESEARCH_TAB_NAME and self._any_download_running():
             return
 
-        active_tab_mode = self.tabview.get()
         if active_tab_mode == RESEARCH_TAB_NAME:
             self.research_panel.start()
             return

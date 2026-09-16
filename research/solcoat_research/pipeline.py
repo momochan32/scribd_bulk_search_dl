@@ -18,6 +18,15 @@ from .validate import conflict_flags
 
 NEAR_DUPLICATE_OVERLAP = 0.9
 
+# Progres keseluruhan 0..1 per tahap; ekstraksi/OCR paling berat sehingga mendapat porsi terbesar.
+STAGES = {
+    "hash": ("Membaca daftar PDF", 0.00, 0.05),
+    "extract": ("Ekstraksi teks & OCR", 0.05, 0.80),
+    "analyze": ("Analisis peralatan & relasi", 0.80, 0.95),
+    "save": ("Menyimpan database", 0.95, 0.97),
+}
+ProgressCallback = Callable[[str, float, str], None]
+
 
 class ScanStopped(RuntimeError):
     """Pemindaian dihentikan pengguna; cache OCR yang sudah selesai tetap tersimpan."""
@@ -91,17 +100,25 @@ def discover_pdfs(input_dir: Path, exclude: tuple[Path, ...] = ()) -> list[Path]
     )
 
 
+def _report(progress: ProgressCallback | None, stage: str, local_fraction: float, detail: str) -> None:
+    if progress is None:
+        return
+    label, low, high = STAGES[stage]
+    progress(label, low + (high - low) * min(max(local_fraction, 0.0), 1.0), detail)
+
+
 def _check_stop(stop_event: threading.Event | None) -> None:
     if stop_event is not None and stop_event.is_set():
         raise ScanStopped("Pemindaian dihentikan pengguna")
 
 
 def extract_all(paths: list[Path], conn, config: ScanConfig, log: Callable[[str], None],
-                stop_event: threading.Event | None = None):
+                stop_event: threading.Event | None = None, progress: ProgressCallback | None = None):
     unique: dict[str, Path] = {}
     duplicates: list[Duplicate] = []
-    for path in paths:
+    for index, path in enumerate(paths, start=1):
         _check_stop(stop_event)
+        _report(progress, "hash", index / len(paths), f"{index}/{len(paths)} file")
         sha = file_sha256(path)
         if sha in unique:
             duplicates.append(Duplicate(str(path), path.name, unique[sha].name, "file identik (SHA-256 sama)"))
@@ -117,6 +134,10 @@ def extract_all(paths: list[Path], conn, config: ScanConfig, log: Callable[[str]
         else:
             pending[sha] = path
     log(f"PDF: {len(paths)} file, {len(unique)} unik, {len(docs)} dari cache, {len(pending)} perlu diekstraksi")
+    sizes = {sha: max(path.stat().st_size, 1) for sha, path in unique.items()}
+    total_bytes = sum(sizes.values())
+    done_bytes = sum(sizes[sha] for sha in docs)
+    _report(progress, "extract", done_bytes / total_bytes, f"{len(docs)}/{len(unique)} dokumen")
 
     if pending:
         with ProcessPoolExecutor(max_workers=config.workers) as pool:
@@ -128,6 +149,8 @@ def extract_all(paths: list[Path], conn, config: ScanConfig, log: Callable[[str]
                 doc = future.result()
                 store.save_cached(conn, doc)
                 docs[doc.sha256] = doc
+                done_bytes += sizes[doc.sha256]
+                _report(progress, "extract", done_bytes / total_bytes, f"{len(docs)}/{len(unique)} dokumen")
                 ocr = sum(p.method == "ocr" for p in doc.pages)
                 log(f"  [{done}/{len(pending)}] {Path(doc.path).name[:60]} — {doc.page_count} hlm, OCR {ocr}")
     ordered = [docs[sha] for sha in unique]
@@ -214,6 +237,7 @@ def persist(conn, result: ScanResult) -> None:
         "source_type": a.source_type, "source_grade": a.source_grade, "companies": list(a.companies),
         "relevance": a.relevance, "relevance_score": a.relevance_score, "duplicate_of": dup_of.get(a.path),
         "error": a.error, "created_at": result.created_at.isoformat(timespec="seconds"),
+        "company": a.company,
     } for a in result.documents])
     for a in result.documents:
         store.insert_rows(conn, "pages", [{"doc_id": doc_ids[a.path], "page_no": p.page_no, "method": p.method,
@@ -243,7 +267,7 @@ def _fact_row_dict(row: FactRow, doc_id: int) -> dict:
 
 
 def run_scan(config: ScanConfig, log: Callable[[str], None] = _log,
-             stop_event: threading.Event | None = None) -> ScanResult:
+             stop_event: threading.Event | None = None, progress: ProgressCallback | None = None) -> ScanResult:
     lexicon = load_lexicon()
     paths = discover_pdfs(config.input_dir, exclude=(config.out_dir,))
     if not paths:
@@ -251,12 +275,13 @@ def run_scan(config: ScanConfig, log: Callable[[str], None] = _log,
     db_path = config.out_dir / "research.db"
     conn = store.connect(db_path)
     try:
-        docs, exact_dups = extract_all(paths, conn, config, log, stop_event)
+        docs, exact_dups = extract_all(paths, conn, config, log, stop_event, progress)
         log("Analisis teks, peralatan, dan relasi …")
         analyses = []
-        for doc in docs:
+        for index, doc in enumerate(docs, start=1):
             _check_stop(stop_event)
             analyses.append(analyze_document(doc, config.input_dir, lexicon))
+            _report(progress, "analyze", index / len(docs), f"{index}/{len(docs)} dokumen")
         kept, near_dups = find_near_duplicates(analyses)
         rows = build_fact_rows(kept)
         result = ScanResult(
@@ -264,7 +289,9 @@ def run_scan(config: ScanConfig, log: Callable[[str], None] = _log,
             duplicates=tuple(exact_dups + near_dups), facts=tuple(rows), equipment=tuple(build_equipment(rows)),
             db_path=db_path,
         )
+        _report(progress, "save", 0.0, "")
         persist(conn, result)
+        _report(progress, "save", 1.0, "")
         log(f"Selesai: {len(kept)} dokumen dianalisis, {len(rows)} fakta, {len(result.equipment)} peralatan")
         return result
     finally:

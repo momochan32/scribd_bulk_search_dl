@@ -1272,13 +1272,19 @@ def save_pdf_pages_individually(
             "disk-spooled PDF pages..."
         )
         writer = PdfWriter()
+        # Write to a .part file and rename atomically: the Riset Solcoat scan may read
+        # this folder while downloads are running and must never see a half-written PDF.
+        partial_filename = f"{filename}.part"
         try:
             for page_path in page_files:
                 writer.append(page_path)
-            with open(filename, "wb") as output_handle:
+            with open(partial_filename, "wb") as output_handle:
                 writer.write(output_handle)
+            os.replace(partial_filename, filename)
         finally:
             writer.close()
+            if os.path.exists(partial_filename):
+                os.remove(partial_filename)
 
     finally:
         spool.cleanup()

@@ -114,3 +114,23 @@ class TestPipelineControls:
         _text_pdf(out / "Laporan_Riset_Solcoat_lama.pdf", "laporan lama")
         names = [p.name for p in discover_pdfs(source, exclude=(out,))]
         assert names == ["Laporan-Kerja-Praktek-PKT_111111.pdf"]
+
+
+class TestProgress:
+    def test_progress_is_monotonic_and_completes(self, source: Path):
+        events = []
+        run_research(source, use_ocr=False, workers=1, log=lambda _: None,
+                     progress=lambda label, fraction, detail: events.append((label, fraction, detail)))
+        fractions = [f for _, f, _ in events]
+        assert fractions == sorted(fractions)
+        assert fractions[0] == 0.0 and fractions[-1] == 1.0
+        labels = [label for label, _, _ in events]
+        for stage in ("Membaca daftar PDF", "Ekstraksi teks & OCR", "Analisis peralatan & relasi", "Menyimpan database",
+                      "Menyusun laporan PDF & Excel", "Selesai"):
+            assert stage in labels
+        assert any(detail == "1/1 dokumen" for _, _, detail in events)
+
+    def test_scan_without_progress_callback_still_works(self, source: Path, tmp_path: Path):
+        result = run_scan(ScanConfig(source, tmp_path / "out", workers=1, ocr=OcrSettings(enabled=False)),
+                          log=lambda _: None)
+        assert result.facts
