@@ -52,5 +52,6 @@ scribd-bulk-profile-*/
 output/
 *.dmg
 *.spec
+!Momo_Rescribd.spec
 dmg_staging/
 

@@ -17,6 +17,7 @@ Key behaviors:
 import argparse
 import base64
 import os
+import random
 import re
 import sys
 import tempfile
@@ -66,6 +67,24 @@ def display_path(path):
     if abs_path.startswith(home):
         return "~" + abs_path[len(home):]
     return abs_path
+
+
+def open_in_file_manager(folder_path):
+    """Cross-platform folder opener for Windows, macOS, and Linux."""
+    if not folder_path or not os.path.exists(folder_path):
+        return False
+    abs_folder = os.path.abspath(folder_path)
+    try:
+        if sys.platform == "win32":
+            os.startfile(abs_folder)
+        elif sys.platform == "darwin":
+            os.system(f'open "{abs_folder}"')
+        else:
+            os.system(f'xdg-open "{abs_folder}"')
+        return True
+    except Exception as exc:
+        print(f"Failed to open folder: {exc}")
+        return False
 
 
 def build_chrome_options(runtime_profile_dir):
@@ -931,6 +950,7 @@ def save_pdf_pages_individually(
     driver,
     filename,
     timeout_seconds=DEFAULT_CDP_TIMEOUT_SECONDS,
+    stop_event=None,
 ):
     from pypdf import PdfReader, PdfWriter
 
@@ -965,6 +985,10 @@ def save_pdf_pages_individually(
 
     try:
         for index in range(page_count):
+            if stop_event and stop_event.is_set():
+                print(f"\n🛑 Pengunduhan dokumen dihentikan pada halaman {index + 1}/{page_count}.")
+                raise KeyboardInterrupt("Stopped by user")
+
             if index % DEFAULT_EXPORT_BATCH_SIZE == 0:
                 batch_end = min(
                     page_count,
@@ -1266,6 +1290,7 @@ def download_scribd_document(
     output_dir=None,
     driver=None,
     close_driver=False,
+    stop_event=None,
 ):
     """
     Download a single Scribd document as a PDF.
@@ -1275,6 +1300,7 @@ def download_scribd_document(
         output_dir: Optional directory to store the output PDF.
         driver: Optional existing Selenium WebDriver instance.
         close_driver: Whether to close the driver after export.
+        stop_event: Optional threading.Event for cancellation.
 
     Returns:
         Tuple of (saved_path, was_skipped).
@@ -1297,6 +1323,9 @@ def download_scribd_document(
         print(f"  [Skip] Document already downloaded: {display_path(target_path)}")
         return os.path.abspath(target_path), True
 
+    if stop_event and stop_event.is_set():
+        raise KeyboardInterrupt("Stopped by user")
+
     print(f"\nProcessing: {url}")
     print(f"Link embed: {converted_url}")
     print(f"Target PDF: {display_path(target_path)}")
@@ -1316,6 +1345,9 @@ def download_scribd_document(
 
         driver.get(converted_url)
         time.sleep(1)
+
+        if stop_event and stop_event.is_set():
+            raise KeyboardInterrupt("Stopped by user")
 
         hide_cookie_dialogs(driver)
         print("Cookie dialogs hidden.")
@@ -1348,12 +1380,13 @@ def download_scribd_document(
         saved_path = save_pdf_pages_individually(
             driver,
             target_path,
+            stop_event=stop_event,
         )
 
         if not saved_path:
             raise RuntimeError("PDF export failed.")
 
-        print(f"PDF saved successfully to: {saved_path}")
+        print(f"PDF saved successfully to: {display_path(saved_path)}")
         return saved_path, False
 
     finally:
@@ -1396,6 +1429,7 @@ def search_scribd_documents(
     existing_ids=None,
     driver=None,
     close_driver=False,
+    stop_event=None,
 ):
     """
     Search Scribd for documents matching a keyword and return a list of document dicts.
@@ -1406,6 +1440,7 @@ def search_scribd_documents(
         existing_ids: Optional set of document IDs to skip (already downloaded).
         driver: Optional existing Selenium WebDriver.
         close_driver: Whether to close driver on completion.
+        stop_event: Optional threading.Event for cancellation.
 
     Returns:
         List of dicts with keys: 'url', 'title', 'id'.
@@ -1437,14 +1472,28 @@ def search_scribd_documents(
         max_search_pages = max(10, (limit + 39) // 40 + 5)
 
         while len(documents_by_id) < limit and page <= max_search_pages:
+            if stop_event and stop_event.is_set():
+                print(f"\n🛑 Pencarian kata kunci '{keyword}' dihentikan oleh pengguna.")
+                break
+
             search_url = (
                 f"https://www.scribd.com/search?query={quoted_query}&page={page}"
             )
             print(f"Fetching search results page {page}...")
             driver.get(search_url)
 
-            # Wait for React SPA hydration
-            time.sleep(3)
+            # Wait for React SPA hydration (interruptible)
+            if stop_event:
+                if stop_event.wait(3.0):
+                    print(f"\n🛑 Pencarian dihentikan oleh pengguna.")
+                    break
+            else:
+                time.sleep(3)
+
+            if stop_event and stop_event.is_set():
+                print(f"\n🛑 Pencarian kata kunci '{keyword}' dihentikan oleh pengguna.")
+                break
+
             hide_cookie_dialogs(driver)
 
             links = driver.find_elements(By.TAG_NAME, "a")
@@ -1452,6 +1501,9 @@ def search_scribd_documents(
             skipped_existing = 0
 
             for link in links:
+                if stop_event and stop_event.is_set():
+                    break
+
                 try:
                     href = link.get_attribute("href")
                     if not href:
@@ -1559,7 +1611,10 @@ def load_urls_from_file(filepath):
 def bulk_download_documents(
     items_or_urls,
     output_dir="output",
-    delay_between=3.0,
+    min_delay=1.0,
+    max_delay=3.0,
+    delay_between=None,
+    stop_event=None,
 ):
     """
     Download multiple documents in sequence, reusing the Chrome instance when possible.
@@ -1567,11 +1622,22 @@ def bulk_download_documents(
     Args:
         items_or_urls: List of URL strings or list of dicts with 'url' key.
         output_dir: Folder to save PDFs.
-        delay_between: Seconds to pause between downloads.
+        min_delay: Minimum random delay in seconds between downloads.
+        max_delay: Maximum random delay in seconds between downloads.
+        delay_between: Optional legacy fixed delay in seconds (overrides min/max if provided).
+        stop_event: Optional threading.Event for cancellation.
 
     Returns:
         Summary dict of download stats.
     """
+    if delay_between is not None:
+        min_delay = float(delay_between)
+        max_delay = float(delay_between)
+
+    # Guarantee min_delay <= max_delay
+    if min_delay > max_delay:
+        min_delay, max_delay = max_delay, min_delay
+
     urls = []
     for item in items_or_urls:
         if isinstance(item, dict) and "url" in item:
@@ -1588,7 +1654,10 @@ def bulk_download_documents(
     print("\n========================================================")
     print(f" Starting Bulk Download: {total} documents")
     print(f" Destination Directory: {display_path(output_dir)}")
-    print(f" Delay between files: {delay_between}s")
+    if min_delay == max_delay:
+        print(f" Delay between files: {max_delay:.1f}s")
+    else:
+        print(f" Random delay range: {min_delay:.1f}s - {max_delay:.1f}s ({int(min_delay*1000)} - {int(max_delay*1000)} ms)")
     print("========================================================\n")
 
     stats = {
@@ -1622,6 +1691,10 @@ def bulk_download_documents(
         start_driver()
 
         for idx, url in enumerate(urls, 1):
+            if stop_event and stop_event.is_set():
+                print("\n🛑 Proses bulk download dihentikan oleh pengguna.")
+                break
+
             print(f"\n--- [{idx}/{total}] ---")
             try:
                 saved_path, was_skipped = download_scribd_document(
@@ -1629,15 +1702,26 @@ def bulk_download_documents(
                     output_dir=output_dir,
                     driver=driver,
                     close_driver=False,
+                    stop_event=stop_event,
                 )
                 if was_skipped:
                     stats["skipped"] += 1
                 else:
                     stats["success"] += 1
-                    if idx < total and delay_between > 0:
-                        print(f"Waiting {delay_between}s before next download...")
-                        time.sleep(delay_between)
+                    if idx < total and max_delay > 0:
+                        actual_delay = random.uniform(min_delay, max_delay)
+                        delay_ms = int(actual_delay * 1000)
+                        print(f"⏱️ Jeda acak {actual_delay:.2f}s ({delay_ms} ms) sebelum dokumen berikutnya...")
+                        if stop_event:
+                            if stop_event.wait(actual_delay):
+                                print("\n🛑 Proses dihentikan saat jeda waktu.")
+                                break
+                        else:
+                            time.sleep(actual_delay)
 
+            except KeyboardInterrupt:
+                print("\n🛑 Proses download dihentikan.")
+                break
             except Exception as exc:
                 print(f"  [ERROR] Failed to download {url}: {exc}")
                 stats["failed"] += 1
@@ -1666,8 +1750,8 @@ def bulk_download_documents(
     print("========================================================")
     print(f" Total Requested:         {stats['total']}")
     print(f" Successfully Downloaded: {stats['success']}")
-    print(f" Skipped (Already existed): {stats['skipped']}")
-    print(f" Failed:                  {stats['failed']}")
+    print(f" Skipped (Pre-existing):  {stats['skipped']}")
+    print(f" Failed Downloads:        {stats['failed']}")
     if stats["failed_urls"]:
         print("\nFailed Documents:")
         for failed_url, reason in stats["failed_urls"]:
@@ -1675,6 +1759,133 @@ def bulk_download_documents(
     print("========================================================\n")
 
     return stats
+
+
+def search_and_bulk_download_keywords(
+    keywords,
+    limit_per_keyword=5,
+    output_dir="output",
+    min_delay=1.0,
+    max_delay=5.0,
+    stop_event=None,
+):
+    """
+    Search Scribd and download documents for multiple keywords sequentially.
+
+    Args:
+        keywords: String (separated by comma or newline) or list of strings.
+        limit_per_keyword: Max new documents to download per keyword.
+        output_dir: Folder to save PDFs.
+        min_delay: Minimum random pause between downloads (seconds).
+        max_delay: Maximum random pause between downloads (seconds).
+        stop_event: Optional threading.Event for cancellation.
+
+    Returns:
+        Summary statistics dictionary.
+    """
+    if isinstance(keywords, str):
+        raw_list = keywords.replace("\n", ",").split(",")
+        keywords = [k.strip() for k in raw_list if k.strip()]
+    elif isinstance(keywords, (list, tuple, set)):
+        keywords = [str(k).strip() for k in keywords if str(k).strip()]
+    else:
+        keywords = []
+
+    total_keywords = len(keywords)
+    if total_keywords == 0:
+        print("⚠️ Tidak ada kata kunci yang valid untuk dicari.")
+        return {
+            "total_keywords": 0,
+            "processed_keywords": 0,
+            "total_downloaded": 0,
+            "total_skipped": 0,
+            "total_failed": 0,
+            "stopped": False,
+        }
+
+    os.makedirs(output_dir, exist_ok=True)
+    print("\n" + "=" * 60)
+    print(f" 🚀 Memulai Pemrosesan {total_keywords} Kata Kunci")
+    print(f" Target Dokumen Baru: {limit_per_keyword} per kata kunci")
+    print(f" Rentang Jeda Acak:   {min_delay:.1f}s - {max_delay:.1f}s ({int(min_delay*1000)} - {int(max_delay*1000)} ms)")
+    print(f" Folder Penyimpanan:  {display_path(output_dir)}")
+    print("=" * 60 + "\n")
+
+    overall_stats = {
+        "total_keywords": total_keywords,
+        "processed_keywords": 0,
+        "total_downloaded": 0,
+        "total_skipped": 0,
+        "total_failed": 0,
+        "stopped": False,
+    }
+
+    for k_idx, keyword in enumerate(keywords, 1):
+        if stop_event and stop_event.is_set():
+            print("\n🛑 Seluruh antrean kata kunci dihentikan oleh pengguna.")
+            overall_stats["stopped"] = True
+            break
+
+        print("\n" + "=" * 60)
+        print(f" 🔍 Kata Kunci [{k_idx}/{total_keywords}]: '{keyword}'")
+        print("=" * 60)
+
+        existing_ids = get_downloaded_document_ids(output_dir)
+        if existing_ids:
+            print(f"ℹ️ Ditemukan {len(existing_ids)} file PDF yang sudah ada sebelumnya di folder.")
+
+        docs = search_scribd_documents(
+            keyword,
+            limit=limit_per_keyword,
+            existing_ids=existing_ids,
+            stop_event=stop_event,
+            close_driver=True,
+        )
+
+        if stop_event and stop_event.is_set():
+            overall_stats["stopped"] = True
+            break
+
+        if not docs:
+            print(f"⚠️ Tidak ada dokumen baru ditemukan untuk kata kunci '{keyword}'. Lanjut ke kata kunci berikutnya...\n")
+            overall_stats["processed_keywords"] += 1
+            continue
+
+        save_search_results_file(keyword, docs, output_dir=output_dir)
+
+        print(f"\n🚀 Memulai download {len(docs)} dokumen untuk '{keyword}'...")
+        stats = bulk_download_documents(
+            docs,
+            output_dir=output_dir,
+            min_delay=min_delay,
+            max_delay=max_delay,
+            stop_event=stop_event,
+        )
+
+        overall_stats["total_downloaded"] += stats.get("success", 0)
+        overall_stats["total_skipped"] += stats.get("skipped", 0)
+        overall_stats["total_failed"] += stats.get("failed", 0)
+        overall_stats["processed_keywords"] += 1
+
+        if stop_event and stop_event.is_set():
+            overall_stats["stopped"] = True
+            break
+
+    print("\n" + "=" * 60)
+    print(" 🎉 Ringkasan Seluruh Pemrosesan Multi-Kata Kunci")
+    print("=" * 60)
+    print(f" Total Kata Kunci:       {overall_stats['total_keywords']}")
+    print(f" Kata Kunci Selesai:     {overall_stats['processed_keywords']}")
+    print(f" Total PDF Diunduh:      {overall_stats['total_downloaded']}")
+    print(f" Total PDF Dilewati:     {overall_stats['total_skipped']}")
+    print(f" Total Gagal:            {overall_stats['total_failed']}")
+    if overall_stats["stopped"]:
+        print(" Status:                 🛑 Dihentikan sebelum selesai")
+    else:
+        print(" Status:                 ✅ Selesai")
+    print("=" * 60 + "\n")
+
+    return overall_stats
 
 
 def parse_arguments():
