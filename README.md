@@ -22,14 +22,18 @@ Aplikasi ini didesain dengan antarmuka grafis (GUI) modern yang elegan dan ramah
 
 ## ✨ Fitur Utama Terbaru
 
-- 🔍 **Multi-Pencarian Kata Kunci Massal (*Multi-Keyword Search Queue*)**:
-  Mendukung input banyak kata kunci sekaligus (dipisahkan baris baru atau koma, misal: `Pupuk Kaltim`, `Petrokimia Gresik`, `Pupuk Indonesia`). Sistem secara otomatis memproses dan mengunduh dokumen per kata kunci secara berurutan.
-- 🛑 **Fitur Berhenti Seketika (*Instant Stop / Cancellation*)**:
-  Tersedia tombol **🛑 Berhenti (Stop)** yang merespons secara langsung. Peramban Chrome latar belakang dan file temporer akan langsung ditutup dan dibersihkan dengan aman tanpa meninggalkan proses menggantung.
+- ⚡ **Eksekusi Multi-Kata Kunci Paralel (*True Concurrent Parallel Processing*)**:
+  Menjalankan banyak kata kunci secara bersamaan (*side-by-side*) alih-alih berurutan. Setiap kata kunci menjalankan instance browser latar belakang (*headless Chrome*) tersendiri dengan profil dan memori terisolasi.
+- 🖥️ **Konsol Log Terisolasi per Kata Kunci (*Dedicated Console Tabs*)**:
+  Setiap kata kunci yang aktif memiliki tab konsol mandiri di area konsol. Log aktivitas tidak saling tercampur (*no log interleaving*). Pengguna dapat berpindah tab untuk memantau status masing-masing kata kunci secara *real-time*.
+- 📁 **Folder Penyimpanan Kustom per Kata Kunci (*Custom Destination per Keyword*)**:
+  Setiap kata kunci memiliki pengaturan direktori simpan tersendiri dengan tombol penjelajah folder (*file picker*). Dokumen antar kata kunci otomatis tersimpan ke subfolder terpisah yang rapi.
+- 🛑 **Kontrol Henti Mandiri & Global (*Independent & Global Cancellation*)**:
+  Pengguna dapat menghentikan salah satu kata kunci yang sedang berjalan tanpa mengganggu proses kata kunci lainnya, atau menghentikan seluruh tugas sekaligus dengan tombol "Hentikan Semua".
 - ⏱️ **Rentang Jeda Acak (*Random Delay Range* 1000 – 5000 ms)**:
   Pengguna dapat mengatur rentang jeda antar pengunduhan (misalnya: Min 1.0 detik s/d Max 5.0 detik). Sistem akan menghasilkan angka acak dinamis (misal: 1.42s, 3.85s, 2.10s) sehingga terhindar dari deteksi bot maupun *rate-limiting*.
 - 🎨 **Antarmuka Grafis Desktop Modern (UI/UX Redesign)**:
-  Tampilan kartu modern berbasis Slate & Indigo, tab navigasi rapi, penghitung kata kunci otomatis, status badge indikator (🟢 Siap, 🟡 Berjalan, 🛑 Dihentikan, 🎉 Selesai), progress bar aktif, dan konsol log terminal bergaya dark-mode.
+  Menggunakan CustomTkinter dengan dark-mode berstandar modern, tipografi jernih (SF Pro Display / Segoe UI / Menlo), kartu tugas interaktif, status badge dinamis (SIAP, MENCARI, MENGUNDUH, SELESAI, DIHENTIKAN), progress bar aktif, dan logo maskot astronot kustom.
 - 📑 **Konversi PDF Asli & Bersih**:
   Menghilangkan seluruh elemen antarmuka yang mengganggu seperti toolbar, banner cookie, overlay langganan, dan watermark. Dokumen disimpan menjadi file PDF yang rapi dan dapat dibaca luring (*offline*).
 - ⚡ **Deduplikasi Dokumen Cerdas (*Smart Resume & Deduplication*)**:

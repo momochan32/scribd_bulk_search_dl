@@ -986,7 +986,7 @@ def save_pdf_pages_individually(
     try:
         for index in range(page_count):
             if stop_event and stop_event.is_set():
-                print(f"\n🛑 Pengunduhan dokumen dihentikan pada halaman {index + 1}/{page_count}.")
+                print(f"\n[STOP] Pengunduhan dokumen dihentikan pada halaman {index + 1}/{page_count}.")
                 raise KeyboardInterrupt("Stopped by user")
 
             if index % DEFAULT_EXPORT_BATCH_SIZE == 0:
@@ -1473,7 +1473,7 @@ def search_scribd_documents(
 
         while len(documents_by_id) < limit and page <= max_search_pages:
             if stop_event and stop_event.is_set():
-                print(f"\n🛑 Pencarian kata kunci '{keyword}' dihentikan oleh pengguna.")
+                print(f"\n[STOP] Pencarian kata kunci '{keyword}' dihentikan oleh pengguna.")
                 break
 
             search_url = (
@@ -1485,13 +1485,13 @@ def search_scribd_documents(
             # Wait for React SPA hydration (interruptible)
             if stop_event:
                 if stop_event.wait(3.0):
-                    print(f"\n🛑 Pencarian dihentikan oleh pengguna.")
+                    print(f"\n[STOP] Pencarian dihentikan oleh pengguna.")
                     break
             else:
                 time.sleep(3)
 
             if stop_event and stop_event.is_set():
-                print(f"\n🛑 Pencarian kata kunci '{keyword}' dihentikan oleh pengguna.")
+                print(f"\n[STOP] Pencarian kata kunci '{keyword}' dihentikan oleh pengguna.")
                 break
 
             hide_cookie_dialogs(driver)
@@ -1692,7 +1692,7 @@ def bulk_download_documents(
 
         for idx, url in enumerate(urls, 1):
             if stop_event and stop_event.is_set():
-                print("\n🛑 Proses bulk download dihentikan oleh pengguna.")
+                print("\n[STOP] Proses bulk download dihentikan oleh pengguna.")
                 break
 
             print(f"\n--- [{idx}/{total}] ---")
@@ -1711,16 +1711,16 @@ def bulk_download_documents(
                     if idx < total and max_delay > 0:
                         actual_delay = random.uniform(min_delay, max_delay)
                         delay_ms = int(actual_delay * 1000)
-                        print(f"⏱️ Jeda acak {actual_delay:.2f}s ({delay_ms} ms) sebelum dokumen berikutnya...")
+                        print(f"[JEDA] Waktu jeda acak {actual_delay:.2f}s ({delay_ms} ms) sebelum dokumen berikutnya...")
                         if stop_event:
                             if stop_event.wait(actual_delay):
-                                print("\n🛑 Proses dihentikan saat jeda waktu.")
+                                print("\n[STOP] Proses dihentikan saat jeda waktu.")
                                 break
                         else:
                             time.sleep(actual_delay)
 
             except KeyboardInterrupt:
-                print("\n🛑 Proses download dihentikan.")
+                print("\n[STOP] Proses download dihentikan.")
                 break
             except Exception as exc:
                 print(f"  [ERROR] Failed to download {url}: {exc}")
@@ -1761,6 +1761,114 @@ def bulk_download_documents(
     return stats
 
 
+def run_keyword_task(
+    keyword,
+    limit=5,
+    output_dir=None,
+    min_delay=1.0,
+    max_delay=5.0,
+    stop_event=None,
+    status_callback=None,
+):
+    """
+    Search Scribd and bulk download documents for a single keyword end-to-end.
+    Designed for concurrent thread execution with isolated headless Chrome driver.
+
+    Args:
+        keyword: Search query string.
+        limit: Max new documents to download.
+        output_dir: Destination folder. Defaults to ~/Downloads/Momo_Rescribd/<keyword_slug>.
+        min_delay: Min delay between document downloads.
+        max_delay: Max delay between document downloads.
+        stop_event: threading.Event for cancellation.
+        status_callback: Optional callable(stage_name, details_dict) for UI status updates.
+
+    Returns:
+        Summary dict of results.
+    """
+    keyword = (keyword or "").strip()
+    if not keyword:
+        print("[PERINGATAN] Kata kunci kosong. Tugas dibatalkan.")
+        return {"total": 0, "success": 0, "skipped": 0, "failed": 0, "stopped": False}
+
+    slug = re.sub(r"[^\w\-]", "_", keyword.lower()).strip("_") or "unduhan"
+    if not output_dir:
+        output_dir = os.path.join(os.path.expanduser("~/Downloads/Momo_Rescribd"), slug)
+    else:
+        output_dir = os.path.abspath(os.path.expanduser(output_dir))
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    if min_delay > max_delay:
+        min_delay, max_delay = max_delay, min_delay
+
+    print("=" * 60)
+    print(f"[TUGAS] Kata Kunci:       '{keyword}'")
+    print(f"[TUGAS] Target Dokumen:   {limit}")
+    print(f"[TUGAS] Direktori Simpan: {display_path(output_dir)}")
+    print(f"[TUGAS] Jeda Acak:        {min_delay:.1f}s - {max_delay:.1f}s ({int(min_delay*1000)} - {int(max_delay*1000)} ms)")
+    print("=" * 60 + "\n")
+
+    if status_callback:
+        status_callback("MENCARI", {"keyword": keyword, "folder": output_dir})
+
+    existing_ids = get_downloaded_document_ids(output_dir)
+    if existing_ids:
+        print(f"[INFO] Ditemukan {len(existing_ids)} file PDF yang sudah ada sebelumnya di folder tujuan.")
+
+    docs = search_scribd_documents(
+        keyword,
+        limit=limit,
+        existing_ids=existing_ids,
+        stop_event=stop_event,
+        close_driver=True,
+    )
+
+    if stop_event and stop_event.is_set():
+        print(f"\n[STOP] Tugas '{keyword}' dihentikan oleh pengguna.")
+        if status_callback:
+            status_callback("DIHENTIKAN", {"keyword": keyword})
+        return {"total": len(docs), "success": 0, "skipped": 0, "failed": 0, "stopped": True}
+
+    if not docs:
+        print(f"[INFO] Tidak ada dokumen baru yang ditemukan untuk kata kunci '{keyword}'.")
+        if status_callback:
+            status_callback("SELESAI", {"keyword": keyword, "count": 0})
+        return {"total": 0, "success": 0, "skipped": 0, "failed": 0, "stopped": False}
+
+    save_search_results_file(keyword, docs, output_dir=output_dir)
+
+    print(f"\n[INFO] Memulai unduh {len(docs)} dokumen untuk kata kunci '{keyword}'...")
+    if status_callback:
+        status_callback("MENGUNDUH", {"keyword": keyword, "total": len(docs)})
+
+    stats = bulk_download_documents(
+        docs,
+        output_dir=output_dir,
+        min_delay=min_delay,
+        max_delay=max_delay,
+        stop_event=stop_event,
+    )
+
+    is_stopped = bool(stop_event and stop_event.is_set())
+    stats["stopped"] = is_stopped
+
+    final_status = "DIHENTIKAN" if is_stopped else "SELESAI"
+    if status_callback:
+        status_callback(final_status, stats)
+
+    print("\n" + "=" * 60)
+    print(f"[RINGKASAN TUGAS] Kata Kunci: '{keyword}'")
+    print(f"  Status Akhir:       {final_status}")
+    print(f"  Total Berhasil:     {stats.get('success', 0)}")
+    print(f"  Total Dilewati:     {stats.get('skipped', 0)}")
+    print(f"  Total Gagal:        {stats.get('failed', 0)}")
+    print(f"  Folder Penyimpanan: {display_path(output_dir)}")
+    print("=" * 60 + "\n")
+
+    return stats
+
+
 def search_and_bulk_download_keywords(
     keywords,
     limit_per_keyword=5,
@@ -1793,7 +1901,7 @@ def search_and_bulk_download_keywords(
 
     total_keywords = len(keywords)
     if total_keywords == 0:
-        print("⚠️ Tidak ada kata kunci yang valid untuk dicari.")
+        print("[PERINGATAN] Tidak ada kata kunci yang valid untuk dicari.")
         return {
             "total_keywords": 0,
             "processed_keywords": 0,
@@ -1805,7 +1913,7 @@ def search_and_bulk_download_keywords(
 
     os.makedirs(output_dir, exist_ok=True)
     print("\n" + "=" * 60)
-    print(f" 🚀 Memulai Pemrosesan {total_keywords} Kata Kunci")
+    print(f" [MEMULAI] Pemrosesan {total_keywords} Kata Kunci")
     print(f" Target Dokumen Baru: {limit_per_keyword} per kata kunci")
     print(f" Rentang Jeda Acak:   {min_delay:.1f}s - {max_delay:.1f}s ({int(min_delay*1000)} - {int(max_delay*1000)} ms)")
     print(f" Folder Penyimpanan:  {display_path(output_dir)}")
@@ -1822,17 +1930,17 @@ def search_and_bulk_download_keywords(
 
     for k_idx, keyword in enumerate(keywords, 1):
         if stop_event and stop_event.is_set():
-            print("\n🛑 Seluruh antrean kata kunci dihentikan oleh pengguna.")
+            print("\n[STOP] Seluruh antrean kata kunci dihentikan oleh pengguna.")
             overall_stats["stopped"] = True
             break
 
         print("\n" + "=" * 60)
-        print(f" 🔍 Kata Kunci [{k_idx}/{total_keywords}]: '{keyword}'")
+        print(f" [CARI] Kata Kunci [{k_idx}/{total_keywords}]: '{keyword}'")
         print("=" * 60)
 
         existing_ids = get_downloaded_document_ids(output_dir)
         if existing_ids:
-            print(f"ℹ️ Ditemukan {len(existing_ids)} file PDF yang sudah ada sebelumnya di folder.")
+            print(f"[INFO] Ditemukan {len(existing_ids)} file PDF yang sudah ada sebelumnya di folder.")
 
         docs = search_scribd_documents(
             keyword,
@@ -1847,13 +1955,13 @@ def search_and_bulk_download_keywords(
             break
 
         if not docs:
-            print(f"⚠️ Tidak ada dokumen baru ditemukan untuk kata kunci '{keyword}'. Lanjut ke kata kunci berikutnya...\n")
+            print(f"[INFO] Tidak ada dokumen baru ditemukan untuk kata kunci '{keyword}'. Lanjut ke kata kunci berikutnya...\n")
             overall_stats["processed_keywords"] += 1
             continue
 
         save_search_results_file(keyword, docs, output_dir=output_dir)
 
-        print(f"\n🚀 Memulai download {len(docs)} dokumen untuk '{keyword}'...")
+        print(f"\n[INFO] Memulai unduh {len(docs)} dokumen untuk '{keyword}'...")
         stats = bulk_download_documents(
             docs,
             output_dir=output_dir,
@@ -1872,7 +1980,7 @@ def search_and_bulk_download_keywords(
             break
 
     print("\n" + "=" * 60)
-    print(" 🎉 Ringkasan Seluruh Pemrosesan Multi-Kata Kunci")
+    print(" [RINGKASAN] Seluruh Pemrosesan Multi-Kata Kunci")
     print("=" * 60)
     print(f" Total Kata Kunci:       {overall_stats['total_keywords']}")
     print(f" Kata Kunci Selesai:     {overall_stats['processed_keywords']}")
@@ -1880,9 +1988,9 @@ def search_and_bulk_download_keywords(
     print(f" Total PDF Dilewati:     {overall_stats['total_skipped']}")
     print(f" Total Gagal:            {overall_stats['total_failed']}")
     if overall_stats["stopped"]:
-        print(" Status:                 🛑 Dihentikan sebelum selesai")
+        print(" Status:                 [STOP] Dihentikan sebelum selesai")
     else:
-        print(" Status:                 ✅ Selesai")
+        print(" Status:                 [SELESAI] Sukses")
     print("=" * 60 + "\n")
 
     return overall_stats
