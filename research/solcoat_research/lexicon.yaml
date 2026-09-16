@@ -1,0 +1,310 @@
+# Kamus domain riset Solcoat — boleh diedit tim teknis tanpa menyentuh kode.
+# Sinonim ditulis sebagai fragmen regex (tanpa batas kata; ditambahkan otomatis, huruf besar/kecil diabaikan).
+#
+# tier peralatan:
+#   A = target langsung Solcoat (berapi, hot face refraktori >= 500 °C)
+#   B = terkait (panas/refraktori, tapi bukan target utama)
+#   C = peralatan proses lain (dilacak supaya relasi tidak salah tempel)
+# role: unit | part (bagian dari unit induk) | material
+
+equipment:
+  - key: primary_reformer
+    label: Primary Reformer
+    tier: A
+    role: unit
+    synonyms: ['primar[yi]\s+reformer', 'steam\s+reformer', 'reformer\s+furnace', 'reformer\s+primer', 'primary\s+reforming']
+  - key: secondary_reformer
+    label: Secondary Reformer
+    tier: B
+    role: unit
+    synonyms: ['secondary\s+reformer', 'secondary\s+reforming', 'autothermal\s+reform(?:er|ing)', 'reformer\s+sekunder']
+  - key: sulfur_furnace
+    label: Sulfur Furnace / Burner
+    tier: A
+    role: unit
+    synonyms: ['sul(?:ph|f)ur\s+(?:furnace|burner|combustion\s+furnace)', 'furnace\s+sul(?:ph|f)ur', 'tungku\s+belerang']
+  - key: coal_boiler
+    label: Boiler Batubara
+    tier: A
+    role: unit
+    synonyms: ['boiler\s+batu\s?bara', 'coal[-\s]fired\s+boiler', 'coal\s+boiler', 'cfb\s+boiler', 'circulating\s+fluidi[sz]ed\s+bed', 'pulveri[sz]ed\s+coal\s+boiler']
+  - key: aux_boiler
+    label: Auxiliary / Package Boiler
+    tier: A
+    role: unit
+    synonyms: ['auxiliary\s+boiler', 'aux\.?\s+boiler', 'package\s+boiler', 'fire\s+tube\s+boiler', 'water\s+tube\s+boiler', 'steam\s+boiler', 'boiler\s+pabrik']
+  - key: waste_heat_boiler
+    label: Waste Heat Boiler / HRSG
+    tier: B
+    role: unit
+    synonyms: ['waste\s+heat\s+boiler', 'WHB', 'HRSG', 'heat\s+recovery\s+steam\s+generator']
+  - key: fired_heater
+    label: Fired Heater
+    tier: A
+    role: unit
+    synonyms: ['fired\s+heater', 'process\s+heater', 'charge\s+heater', 'start[-\s]?up\s+heater', 'direct[-\s]fired\s+heater', 'fire\s+heater']
+  - key: incinerator
+    label: Incinerator / Thermal Oxidizer
+    tier: A
+    role: unit
+    synonyms: ['incinerator', 'insinerator', 'thermal\s+oxidi[sz]er']
+  - key: kiln
+    label: Kiln / Calciner
+    tier: A
+    role: unit
+    synonyms: ['rotary\s+kiln', 'kiln', 'calciner', 'kalsiner']
+  - key: hot_gas_generator
+    label: Hot Gas Generator / Combustion Chamber
+    tier: A
+    role: unit
+    synonyms: ['hot\s+(?:gas|air)\s+generator', 'combustion\s+chamber', 'ruang\s+bakar', 'hot\s+air\s+furnace']
+  - key: furnace
+    label: Furnace (umum)
+    tier: A
+    role: unit
+    synonyms: ['furnace', 'tanur', 'dapur\s+pembakaran', 'tungku']
+  - key: boiler
+    label: Boiler (umum)
+    tier: A
+    role: unit
+    synonyms: ['boiler', 'ketel\s+uap']
+    exclude: ['boiler\s+feed', 'umpan\s+boiler', 'boiler\s+water', 'air\s+boiler', 'BFW', 'blowdown\s+boiler']
+  - key: dryer
+    label: Dryer (berpemanas)
+    tier: B
+    role: unit
+    synonyms: ['rotary\s+dryer', 'dryer', 'pengering']
+  - key: superheater
+    label: Superheater
+    tier: B
+    role: unit
+    synonyms: ['superheater', 'super\s+heater']
+  - key: gas_turbine
+    label: Gas Turbine Generator
+    tier: C
+    role: unit
+    synonyms: ['gas\s+turbine\s+generator', 'gas\s+turbin(?:e)?', 'GTG']
+  - key: radiant_section
+    label: Seksi Radiasi
+    tier: B
+    role: part
+    synonyms: ['radiant\s+(?:section|box|zone|chamber)', 'seksi\s+radiasi', 'zona\s+radiasi', 'ruang\s+radiasi']
+  - key: convection_section
+    label: Seksi Konveksi
+    tier: B
+    role: part
+    synonyms: ['convection\s+section', 'seksi\s+konveksi', 'zona\s+konveksi', 'waste\s+heat\s+(?:section|recovery)']
+  - key: burner
+    label: Burner
+    tier: B
+    role: part
+    synonyms: ['burner', 'pembakar']
+  - key: stack
+    label: Stack / Cerobong
+    tier: B
+    role: part
+    synonyms: ['stack', 'cerobong(?:\s+asap)?', 'chimney']
+    exclude: ['stack\s+holder', 'stakeholder']
+  - key: refractory
+    label: Refraktori / Lining
+    tier: A
+    role: material
+    synonyms: ['refrakto?ri', 'refractory', 'castable', 'batu\s+tahan\s+api', 'bata\s+tahan\s+api', 'fire\s?brick', 'ceramic\s+fib(?:er|re)', 'insulating\s+brick', 'refractory\s+lining', 'lining\s+refraktori']
+
+parameters:
+  - key: suhu_flue_gas
+    label: Suhu flue gas / gas buang
+    category: termal
+    kinds: [suhu]
+    range: [60, 1400]
+    synonyms: ['flue\s+gas', 'gas\s+buang', 'gas\s+asap', 'stack\s+gas', 'exhaust\s+gas', 'stack\s+temperature', 'suhu\s+cerobong']
+  - key: suhu_bridgewall
+    label: Suhu bridgewall / firebox (FEGT)
+    category: termal
+    kinds: [suhu]
+    range: [500, 1600]
+    synonyms: ['bridge\s?wall', 'arch\s+temperature', 'FEGT', 'furnace\s+exit\s+gas', 'fire\s?box', 'radiant\s+(?:section\s+)?exit', 'suhu\s+(?:dapur|ruang\s+bakar|furnace|radiasi)']
+  - key: suhu_tmt
+    label: Tube metal temperature (TMT)
+    category: termal
+    kinds: [suhu]
+    range: [200, 1200]
+    synonyms: ['TMT', 'tube\s+metal', 'tube\s+skin', 'skin\s+temperature', 'suhu\s+(?:dinding|permukaan)\s+tube', 'tube\s+wall']
+  - key: suhu_outlet
+    label: Suhu keluaran
+    category: termal
+    kinds: [suhu]
+    range: [-60, 1400]
+    synonyms: ['outlet\s+temperature', '(?:suhu|temperatur(?:e)?)\s+(?:keluaran|keluar|outlet)(?!\s*/)', 'coil\s+outlet', 'COT', 'T\s?out']
+  - key: suhu_inlet
+    label: Suhu masuk
+    category: termal
+    kinds: [suhu]
+    range: [-60, 1400]
+    synonyms: ['inlet\s+temperature', '(?:suhu|temperatur(?:e)?)\s+(?:masuk(?:an)?|inlet|umpan)(?!\s*/)', 'T\s?in']
+  - key: suhu_operasi
+    label: Suhu (umum)
+    category: termal
+    kinds: [suhu]
+    range: [-100, 1600]
+    synonyms: ['temperatur(?:e)?', 'suhu', 'temp\.?', 'T\s?=']
+  - key: tekanan_draft
+    label: Draft / tekanan ruang bakar
+    category: pembakaran
+    kinds: [tekanan]
+    range: [-1, 1]
+    synonyms: ['draft', 'draught', 'tekanan\s+(?:dapur|furnace|ruang\s+bakar)']
+  - key: tekanan
+    label: Tekanan
+    category: operasi
+    kinds: [tekanan]
+    range: [-1, 400]
+    synonyms: ['tekanan', 'pressure', 'press\.', 'P\s?=']
+  - key: heat_duty
+    label: Heat duty / beban panas
+    category: termal
+    kinds: [duty, daya]
+    range: [0.01, 3000]
+    synonyms: ['heat\s+duty', 'absorbed\s+duty', 'fired\s+duty', 'duty', 'heat\s+release', 'heat\s+load', 'beban\s+(?:panas|termal)', 'panas\s+(?:yang\s+)?(?:diserap|dilepas|dibutuhkan)', 'kebutuhan\s+panas']
+  - key: luas_permukaan
+    label: Luas permukaan / area
+    category: dimensi
+    kinds: [luas]
+    range: [0.01, 500000]
+    synonyms: ['surface\s+area', 'heat\s+transfer\s+area', 'luas(?:\s+(?:permukaan|area|bidang|lahan))?', 'luasan', 'area']
+  - key: tebal_lining
+    label: Tebal refraktori / lining
+    category: refraktori
+    kinds: [panjang]
+    range: [1, 1000]
+    synonyms: ['tebal\s+(?:refrakto?ri|castable|lining|batu\s+tahan\s+api|bata\s+tahan\s+api|isolasi|insulasi)', 'refractory\s+thickness', 'lining\s+thickness', 'ketebalan\s+(?:refrakto?ri|lining|castable)']
+  - key: dimensi
+    label: Dimensi (ID/OD/tinggi/panjang)
+    category: dimensi
+    kinds: [panjang]
+    range: [1, 300000]
+    synonyms: ['ID\s?x\s?TL\s?-\s?TL', 'TL\s?-\s?TL', 'TL', 'ID', 'OD', 'IDxTL-TL', 'diameter', 'tinggi', 'height', 'panjang', 'length', 'lebar', 'width', 'dimensi', 'ukuran', 'size', 'tebal', 'thickness']
+  - key: efisiensi
+    label: Efisiensi
+    category: termal
+    kinds: [persen]
+    range: [20, 100]
+    synonyms: ['efisiensi(?:\s+(?:termal|thermal|boiler|furnace|pembakaran|energi|panas))?', 'efficiency', 'effisiensi']
+  - key: excess_air
+    label: Excess air / O2
+    category: pembakaran
+    kinds: [persen]
+    range: [0, 100]
+    synonyms: ['excess\s+(?:air|O2|oxygen)', 'udara\s+berlebih', 'kadar\s+O2', 'O2\s+(?:di\s+|pada\s+)?(?:flue\s+gas|stack|cerobong)']
+  - key: konsumsi_bahan_bakar
+    label: Konsumsi bahan bakar
+    category: energi
+    kinds: [laju_volume, laju_massa, duty]
+    range: [0, 10000000]
+    synonyms: ['konsumsi\s+(?:gas(?:\s+alam)?|bahan\s+bakar|fuel|batu\s?bara)', 'fuel\s+(?:gas\s+)?(?:consumption|flow|rate)', '(?:gas\s+)?bahan\s+bakar', 'fuel\s+gas', 'fuel\s+oil']
+  - key: nilai_kalor
+    label: Nilai kalor (LHV/HHV)
+    category: energi
+    kinds: [nilai_kalor_massa, nilai_kalor_volume]
+    range: [500, 30000]
+    synonyms: ['LHV', 'HHV', 'GHV', 'NHV', 'nilai\s+kalor', 'heating\s+value', 'calorific\s+value', 'GAR', 'NAR', 'kalori']
+  - key: konsumsi_energi_spesifik
+    label: Konsumsi energi spesifik
+    category: energi
+    kinds: [energi_spesifik]
+    range: [0.1, 100]
+    synonyms: ['konsumsi\s+energi', 'energy\s+consumption', 'rasio\s+konsumsi', 'consumption\s+ratio', 'energi\s+spesifik', 'specific\s+energy', 'intensitas\s+energi', 'energy\s+intensity', 'intensity']
+  - key: penghematan_energi
+    label: Penghematan energi
+    category: energi
+    kinds: [energi]
+    range: [1, 1000000000]
+    synonyms: ['penghematan\s+(?:energi|gas|bahan\s+bakar)', 'energy\s+sav(?:ing|ings|ed)', 'hemat\s+energi']
+  - key: konsumsi_energi_total
+    label: Konsumsi energi total
+    category: energi
+    kinds: [energi]
+    range: [1, 10000000000]
+    synonyms: ['konsumsi\s+(?:energi|gas(?:\s+alam|\s+bumi)?)', 'energy\s+(?:consumption|use)', 'penggunaan\s+(?:energi|gas)', 'pemakaian\s+(?:energi|gas)']
+  - key: harga_energi
+    label: Harga gas / energi
+    category: komersial
+    kinds: [harga]
+    range: [0.5, 60]
+    synonyms: ['harga\s+(?:gas(?:\s+alam|\s+bumi)?|bahan\s+bakar|energi|batu\s?bara)', 'gas\s+price', 'tarif\s+gas', 'HGBT', 'price']
+  - key: kapasitas_steam
+    label: Kapasitas steam
+    category: utilitas
+    kinds: [laju_massa]
+    range: [0.1, 5000]
+    synonyms: ['(?:produksi|kapasitas)\s+(?:steam|uap)', 'steam\s+(?:generation|capacity|production)', 'steam', 'uap']
+  - key: kapasitas_produksi
+    label: Kapasitas produksi
+    category: kapasitas
+    kinds: [kapasitas_harian, kapasitas_tahunan]
+    range: [1, 50000000]
+    synonyms: ['kapasitas(?:\s+(?:terpasang|produksi|desain|design))?', 'capacity', 'produksi', 'production', 'rated', 'menghasilkan']
+  - key: laju_alir
+    label: Laju alir
+    category: operasi
+    kinds: [laju_massa, laju_volume]
+    range: [0, 10000000]
+    synonyms: ['laju\s+alir', 'flow\s?rate', 'flow', 'aliran', 'rate', 'laju', 'sebanyak', 'sejumlah', 'sebesar']
+  - key: daya_listrik
+    label: Daya / kapasitas listrik
+    category: utilitas
+    kinds: [daya]
+    range: [0.01, 5000]
+    synonyms: ['daya', 'listrik', 'generator', 'pembangkit', 'power', 'GTG', 'STG', 'turbin']
+
+# Parameter berbasis hitungan / tanpa satuan (pola khusus di kode).
+special_parameters:
+  jumlah_tube: {label: Jumlah tube, category: dimensi, range: [1, 3000]}
+  jumlah_burner: {label: Jumlah burner, category: pembakaran, range: [1, 2000]}
+  emisivitas: {label: Emisivitas, category: refraktori, range: [0.01, 1.0]}
+
+# Parameter yang hanya dipertahankan bila kata kuncinya ditemukan (bukan sekadar satuan).
+keyword_required_kinds: [persen, panjang, harga, kapasitas_harian, kapasitas_tahunan, daya, energi]
+
+companies:
+  - {name: Petrokimia Gresik, type: klien, synonyms: ['petrokimia\s+gresik', 'PT\s+PKG', 'PKG']}
+  - {name: Pupuk Kalimantan Timur, type: klien, synonyms: ['pupuk\s+kalimantan\s+timur', 'pupuk\s+kaltim', 'PKT']}
+  - {name: Pupuk Indonesia, type: klien, synonyms: ['pupuk\s+indonesia', 'PIHC']}
+  - {name: Pupuk Sriwidjaja, type: klien, synonyms: ['pupuk\s+sriwid?jaja', 'pusri']}
+  - {name: Pupuk Kujang, type: klien, synonyms: ['pupuk\s+kujang']}
+  - {name: Pupuk Iskandar Muda, type: klien, synonyms: ['pupuk\s+iskandar\s+muda']}
+  - {name: Rekayasa Industri, type: epc, synonyms: ['rekayasa\s+industri', 'rekind']}
+  - {name: Pertamina, type: klien, synonyms: ['pertamina']}
+  - {name: PLN, type: klien, synonyms: ['PLN', 'perusahaan\s+listrik\s+negara']}
+  - {name: Krakatau Steel, type: klien, synonyms: ['krakatau\s+steel']}
+  - {name: Chandra Asri, type: klien, synonyms: ['chandra\s+asri']}
+  - {name: Kaltim Methanol Industri, type: klien, synonyms: ['kaltim\s+methanol', 'KMI']}
+  - {name: Kaltim Parna Industri, type: klien, synonyms: ['kaltim\s+parna']}
+  - {name: Haldor Topsoe, type: licensor, synonyms: ['haldor\s+tops(?:ø|o)e', 'topsoe']}
+  - {name: Kellogg / KBR, type: licensor, synonyms: ['kellogg', 'KBR']}
+  - {name: Uhde / thyssenkrupp, type: licensor, synonyms: ['uhde', 'thyssenkrupp']}
+  - {name: Toyo Engineering, type: licensor, synonyms: ['toyo\s+engineering', 'TEC']}
+  - {name: Stamicarbon, type: licensor, synonyms: ['stamicarbon']}
+  - {name: Snamprogetti, type: licensor, synonyms: ['snamprogetti', 'saipem']}
+
+# Pabrik/unit. company boleh kosong bila nama pabrik dipakai lintas perusahaan (mis. 'Pabrik 1A').
+plants:
+  - {pattern: 'Kaltim[-\s]?[1-5][AB]?', company: Pupuk Kalimantan Timur}
+  - {pattern: 'POPKA', company: Pupuk Kalimantan Timur}
+  - {pattern: 'Pusri[-\s]?(?:I{1,3}B?|IV|[1-4]B?)', company: Pupuk Sriwidjaja}
+  - {pattern: 'Kujang[-\s]?1[AB]', company: Pupuk Kujang}
+  - {pattern: 'Amurea\s+I{1,2}', company: Petrokimia Gresik}
+  - {pattern: 'Unit\s+ZA\s?I{1,3}', company: Petrokimia Gresik}
+  - {pattern: 'Pabrik[-\s]?(?:1A|[1-5][AB]?|I{1,3}[AB]?|IV|V)', company: ''}
+
+source_types:
+  - {label: Laporan kerja praktik (mahasiswa), grade: sekunder, patterns: ['kerja\s+praktek', 'kerja\s+praktik', 'praktek\s+kerja', 'praktik\s+kerja', '\bKP\b', '\bPKL\b', 'magang']}
+  - {label: Laporan tahunan perusahaan, grade: primer, patterns: ['annual\s+report', 'laporan\s+tahunan']}
+  - {label: Laporan keberlanjutan, grade: primer, patterns: ['sustainability\s+report', 'laporan\s+keberlanjutan', '\bSR\b']}
+  - {label: Proposal / penawaran, grade: sekunder, patterns: ['proposal', 'penawaran']}
+  - {label: Presentasi, grade: sekunder, patterns: ['pptx?', 'presentasi', 'materi', 'tayang', 'training']}
+  - {label: Makalah / tugas akademik, grade: sekunder, patterns: ['makalah', 'skripsi', 'tugas', 'jurnal', 'paper']}
+  - {label: Profil perusahaan, grade: primer, patterns: ['profil', 'company\s+profile', 'struktur\s+organisasi']}
+
+# Kata kunci konteks strategis (efisiensi energi, dekarbonisasi, proyek) untuk tim analis.
+strategic_keywords: ['efisiensi\s+energi', 'energy\s+efficiency', 'penghematan\s+(?:energi|gas|bahan\s+bakar)', 'dekarbonisasi', 'decarboni[sz]ation', 'net\s+zero', 'NZE', 'revamp(?:ing)?', 'turnaround', 'overhaul', 'shutdown', 'refraktori', 'refractory', 'emisi\s+(?:CO2|gas\s+rumah\s+kaca)', 'GHG', 'intensitas\s+emisi', 'co-firing', 'konsumsi\s+gas', 'harga\s+gas', 'HGBT', 'boiler\s+batu\s?bara', 'coal\s+boiler']

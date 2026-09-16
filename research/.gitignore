@@ -1,0 +1,6 @@
+.venv/
+tessdata/
+output/
+*.db
+.pytest_cache/
+.coverage
