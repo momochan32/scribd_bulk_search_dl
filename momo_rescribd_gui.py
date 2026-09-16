@@ -7,14 +7,18 @@ and robust macOS trackpad click handling.
 Cross-platform: macOS, Windows, and Linux.
 """
 
+import logging
 import os
 import queue
 import random
 import re
 import sys
+import tempfile
 import threading
 import time
 import tkinter as tk
+import traceback
+from logging.handlers import RotatingFileHandler
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
@@ -29,6 +33,53 @@ import scribd_engine as engine
 IS_WINDOWS = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
 
+
+# ---------------------------------------------------------------------------
+# Crash & Diagnostics Logging
+# ---------------------------------------------------------------------------
+# A windowed .app bundle has no terminal attached, so anything written to
+# stdout/stderr is lost. Without a real sink, an exception raised inside a
+# button's command produces zero feedback and the button simply looks dead.
+# Every diagnostic therefore goes to a file the user can be pointed at.
+MAX_LOG_BYTES = 2 * 1024 * 1024
+LOG_BACKUP_COUNT = 2
+
+
+def _resolve_log_path():
+    if IS_WINDOWS:
+        base = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "MomoRescribd")
+    elif IS_MAC:
+        base = os.path.expanduser("~/Library/Logs/MomoRescribd")
+    else:
+        base = os.path.expanduser("~/.local/state/momo-rescribd")
+    try:
+        os.makedirs(base, exist_ok=True)
+    except OSError:
+        base = tempfile.gettempdir()
+    return os.path.join(base, "momo_rescribd.log")
+
+
+LOG_PATH = _resolve_log_path()
+
+
+def _setup_logging():
+    logger = logging.getLogger("momo_rescribd")
+    if logger.handlers:
+        return logger
+    logger.setLevel(logging.INFO)
+    try:
+        handler = RotatingFileHandler(
+            LOG_PATH, maxBytes=MAX_LOG_BYTES, backupCount=LOG_BACKUP_COUNT, encoding="utf-8"
+        )
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(threadName)s %(message)s"))
+        logger.addHandler(handler)
+    except OSError:
+        logger.addHandler(logging.NullHandler())
+    return logger
+
+
+LOGGER = _setup_logging()
+
 FONT_FAMILY_MAIN = "Segoe UI" if IS_WINDOWS else ("SF Pro Display" if IS_MAC else "Ubuntu")
 FONT_FAMILY_MONO = "Consolas" if IS_WINDOWS else ("Menlo" if IS_MAC else "Monospace")
 
@@ -39,44 +90,44 @@ ctk.set_default_color_theme("blue")
 # ---------------------------------------------------------------------------
 # macOS Trackpad / Mouse Click Responsiveness Patch
 # ---------------------------------------------------------------------------
-# In CustomTkinter on macOS, trackpad micro-movements often trigger <Leave>
-# between button press and release, setting _mouse_inside = False and dropping
-# the click. This monkey patch ensures clicks are NEVER dropped when the user
-# releases the mouse within the button's boundary.
-_orig_ctk_button_on_release = ctk.CTkButton._on_release
-_orig_ctk_button_create_bindings = ctk.CTkButton._create_bindings
+# CustomTkinter decides whether to fire a button's command by reading
+# _mouse_inside, which <Leave> resets to False. On macOS, trackpad micro-motion
+# fires <Leave> between press and release, so the click is silently dropped.
+#
+# The fix binds <Button-1> to force _mouse_inside = True the instant the button
+# is pressed. It MUST be applied from _draw(), not _create_bindings():
+# CTkButton.__init__ calls _create_bindings() while _text_label and
+# _image_label are still None (they are created later, inside _draw), and
+# _draw never calls _create_bindings again. Patching _create_bindings therefore
+# only ever reaches the canvas -- leaving the text label, which covers the
+# centre of the button, on the old click-dropping path.
+_orig_ctk_button_draw = ctk.CTkButton._draw
+
+_PRESS_BOUND_FLAG = "_momo_press_bound"
 
 
-def _patched_ctk_button_create_bindings(self, sequence=None):
-    _orig_ctk_button_create_bindings(self, sequence)
-    # Bind ButtonPress-1 to guarantee immediate active/inside state
+def _ensure_press_binding(button):
+    """Bind <Button-1> on the canvas and on both labels, exactly once each."""
+
     def _on_press(event=None):
-        if self._state not in ("disabled", tk.DISABLED):
-            self._mouse_inside = True
+        if button._state not in ("disabled", tk.DISABLED):
+            button._mouse_inside = True
 
-    self._canvas.bind("<Button-1>", _on_press, add=True)
-    if self._text_label is not None:
-        self._text_label.bind("<Button-1>", _on_press, add=True)
-    if self._image_label is not None:
-        self._image_label.bind("<Button-1>", _on_press, add=True)
-
-
-def _patched_ctk_button_on_release(self, event=None):
-    if self._state not in ("disabled", tk.DISABLED):
-        is_inside = True
-        if event and hasattr(event, "x") and hasattr(event, "y"):
-            w = self.winfo_width()
-            h = self.winfo_height()
-            # Allow generous 20px hit-test margin for trackpad micro-movements
-            if not (-20 <= event.x <= w + 20 and -20 <= event.y <= h + 20):
-                is_inside = False
-        if is_inside:
-            self._mouse_inside = True
-    return _orig_ctk_button_on_release(self, event)
+    for widget in (button._canvas, button._text_label, button._image_label):
+        if widget is None or getattr(widget, _PRESS_BOUND_FLAG, False):
+            continue
+        widget.bind("<Button-1>", _on_press, add=True)
+        setattr(widget, _PRESS_BOUND_FLAG, True)
 
 
-ctk.CTkButton._create_bindings = _patched_ctk_button_create_bindings
-ctk.CTkButton._on_release = _patched_ctk_button_on_release
+def _patched_ctk_button_draw(self, no_color_updates=False):
+    _orig_ctk_button_draw(self, no_color_updates)
+    # _draw runs again whenever the text/image labels are recreated, so this
+    # re-binds them without duplicating handlers on widgets already covered.
+    _ensure_press_binding(self)
+
+
+ctk.CTkButton._draw = _patched_ctk_button_draw
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +152,18 @@ class ThreadRoutedStdout:
         with self._lock:
             self._handlers.pop(thread_ident, None)
 
+    def _write_fallback(self, text):
+        """Never drop output: fall back to the real stream, else to the log file."""
+        if self.fallback:
+            try:
+                self.fallback.write(text)
+                return
+            except Exception:
+                pass
+        stripped = text.rstrip()
+        if stripped:
+            LOGGER.info(stripped)
+
     def write(self, text):
         if not text:
             return
@@ -116,15 +179,16 @@ class ThreadRoutedStdout:
                 elif callable(target):
                     target(text)
             except Exception:
-                if self.fallback:
-                    self.fallback.write(text)
+                self._write_fallback(text)
         else:
-            if self.fallback:
-                self.fallback.write(text)
+            self._write_fallback(text)
 
     def flush(self):
         if self.fallback:
-            self.fallback.flush()
+            try:
+                self.fallback.flush()
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -199,12 +263,36 @@ class MomoRescribdApp(ctk.CTk):
         # Console Tab Tracking
         self.active_console_tabs = {}  # tab_name -> CTkTextbox
 
-        # Click-through helper: ensure window takes key focus on first click
-        self.bind("<Button-1>", lambda e: self.focus_set(), add=True)
+        # Click-through helper: ensure window takes key focus on first click.
+        # A binding on the Toplevel fires for clicks on EVERY descendant, so it
+        # must not steal focus from widgets that accept keyboard input.
+        self.bind("<Button-1>", self._on_root_click, add=True)
 
         self._build_ui()
         self._seed_sample_tasks()
         self._poll_log_queues()
+
+    def _on_root_click(self, event=None):
+        widget = getattr(event, "widget", None)
+        if isinstance(widget, (tk.Entry, tk.Text, ctk.CTkEntry, ctk.CTkTextbox)):
+            return
+        self.focus_set()
+
+    def report_callback_exception(self, exc, val, tb):
+        """Surface errors raised inside Tk callbacks.
+
+        Tk routes these to sys.stderr, which a windowed .app bundle discards.
+        Without this, an exception in a button's command is invisible and the
+        button just appears unresponsive.
+        """
+        LOGGER.error("UI callback error:\n%s", "".join(traceback.format_exception(exc, val, tb)))
+        try:
+            messagebox.showerror(
+                "Terjadi Kesalahan",
+                f"{val}\n\nDetail lengkap tersimpan di:\n{LOG_PATH}",
+            )
+        except Exception:
+            pass
 
     def _set_app_icon(self):
         """Set window icon for Windows and macOS."""
@@ -1104,7 +1192,21 @@ class MomoRescribdApp(ctk.CTk):
             p = os.path.expanduser(val)
         else:
             p = os.path.expanduser("~/Downloads/Momo_Rescribd")
-        os.makedirs(p, exist_ok=True)
+        try:
+            os.makedirs(p, exist_ok=True)
+        except OSError as exc:
+            # macOS guards ~/Downloads and ~/Documents behind TCC. A bundled app
+            # that has not been granted access raises here, and every action
+            # button routes through this method -- so swallowing it would make
+            # the whole UI look dead.
+            LOGGER.error("Cannot create output folder %s: %s", p, exc)
+            messagebox.showerror(
+                "Folder Tidak Dapat Dibuat",
+                f"Tidak bisa membuat atau mengakses folder:\n{p}\n\n{exc}\n\n"
+                "Beri izin akses folder di System Settings > Privacy & Security > Files and Folders, "
+                "atau pilih folder lain lewat tombol Pilih Folder.",
+            )
+            raise
         return p
 
     def _browse_base_folder(self):

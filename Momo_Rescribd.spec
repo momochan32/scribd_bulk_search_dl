@@ -26,6 +26,11 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 icon_file = 'assets/momo_rescribd.ico' if sys.platform == 'win32' else 'assets/momo_rescribd.icns'
 
+# UPX mangles Mach-O headers and invalidates the ad-hoc code signature that
+# Apple Silicon requires, producing bundles that crash or misbehave at runtime.
+# Keep it off on macOS.
+use_upx = sys.platform != 'darwin'
+
 a = Analysis(
     ['momo_rescribd_gui.py'],
     pathex=[],
@@ -50,7 +55,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=use_upx,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -65,7 +70,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=use_upx,
     upx_exclude=[],
     name='Momo Rescribd',
 )
@@ -76,4 +81,15 @@ if sys.platform == 'darwin':
         name='Momo Rescribd.app',
         icon='assets/momo_rescribd.icns',
         bundle_identifier='com.momochan32.momorescribd',
+        info_plist={
+            # Without this the bundle runs in 1x scaled mode on Retina displays,
+            # which renders the Tk window blurry and can offset hit testing.
+            'NSHighResolutionCapable': True,
+            'CFBundleName': 'Momo Rescribd',
+            'CFBundleDisplayName': 'Momo Rescribd',
+            'CFBundleShortVersionString': '1.1.0',
+            'CFBundleVersion': '1.1.0',
+            'LSMinimumSystemVersion': '11.0',
+            'NSHumanReadableCopyright': 'Copyright (c) momochan32',
+        },
     )
