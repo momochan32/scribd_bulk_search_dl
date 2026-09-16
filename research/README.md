@@ -57,3 +57,19 @@ pabrik → perusahaan, jenis sumber, kata kunci strategis. Jalankan tes setelah 
 - Relasi lintas halaman lemah; "desain" vs "aktual" hanya dikenali dari kata kunci.
 - Data inti Solcoat (luas refraktori, heat duty, suhu flue gas, konsumsi bahan bakar per heater) hampir tidak
   pernah ada di dokumen publik. Laporan menandai kekosongan ini agar diminta langsung ke klien.
+
+## Hitung dengan Asumsi (kalkulator Solcoat)
+
+`calculator.py` adalah port dari `Solcoat-Fuel-Energy-Saving-App/src/utils/calc.js`. Kesetaraannya diuji di
+`tests/test_calculator.py` terhadap keluaran JavaScript asli. Bila `calc.js` berubah, perbarui port lalu buat
+ulang fixture:
+
+```bash
+node tests/fixtures/make_calc_parity.mjs ~/Documents/Solcoat-Fuel-Energy-Saving-App/src/utils/calc.js \
+  > tests/fixtures/calc_js_parity.json
+.venv/bin/python -m pytest -q tests/test_calculator.py
+```
+
+Aturan form (`calc_form.py`): nilai dari riset (`calc_prefill.py`) atau kurs otomatis (`fx.py`) terkunci dan hanya
+bisa diganti setelah kotak Overwrite dicentang; centang tanpa isian valid ditolak. Default mengikuti Project
+Instructions Solcoat v2.6 (Rp 85 jt/galon, 3,50/2,50 m²/galon, 8.760 jam, skenario 2,5/5/7%).

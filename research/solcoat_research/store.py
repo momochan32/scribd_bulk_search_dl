@@ -21,7 +21,7 @@ DROP TABLE IF EXISTS equipment; DROP TABLE IF EXISTS facts; DROP TABLE IF EXISTS
 CREATE TABLE documents (
     id INTEGER PRIMARY KEY, path TEXT, name TEXT, topic TEXT, sha256 TEXT, page_count INTEGER,
     ocr_pages INTEGER, failed_pages INTEGER, lang TEXT, source_type TEXT, source_grade TEXT, companies TEXT,
-    relevance TEXT, relevance_score REAL, duplicate_of TEXT, error TEXT, created_at TEXT);
+    relevance TEXT, relevance_score REAL, duplicate_of TEXT, error TEXT, created_at TEXT, company TEXT);
 CREATE TABLE pages (doc_id INTEGER, page_no INTEGER, method TEXT, quality TEXT, lang TEXT, score REAL, text TEXT);
 CREATE VIRTUAL TABLE pages_fts USING fts5(doc_name, page_no UNINDEXED, text, tokenize='unicode61');
 CREATE TABLE equipment (

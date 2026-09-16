@@ -57,6 +57,10 @@ Aplikasi ini didesain dengan antarmuka grafis (GUI) modern yang elegan dan ramah
 
 Pemindaian pertama menjalankan OCR (±2 menit untuk ±5.000 halaman); pemindaian berikutnya memakai cache dan hanya butuh belasan detik. Semua angka berstatus **belum diverifikasi** — cocokkan ke halaman sumber sebelum dipakai di dokumen klien.
 
+- **Progres & waktu**: bar progres per tahap (daftar PDF → ekstraksi/OCR → analisis → laporan), jumlah dokumen selesai, persentase, waktu berjalan, dan perkiraan sisa waktu. Setiap baris log di konsol diberi cap waktu `[mm:ss]`.
+- **Riset sambil mengunduh**: tombol unduh tetap aktif selama riset berjalan. Saat ada unduhan, OCR otomatis memakai separuh inti CPU agar Chrome tetap lancar. PDF ditulis ke berkas `.part` lalu di-rename, sehingga riset tidak pernah membaca PDF setengah jadi; PDF yang selesai setelah riset dimulai ikut di riset berikutnya.
+- **Hitung dengan Asumsi**: kalkulator dengan rumus yang sama persis dengan calculate.solcoat.com (diuji setara angka per angka terhadap `calc.js`). Pilih peralatan hasil riset atau isi manual; atur harga per galon (default Rp 85 jt), total luas dan porsi ceramic fiber, basis energi, harga bahan bakar, dan kurs (diambil otomatis beserta tanggalnya). Nilai yang **sudah diketahui** dari riset atau kurs otomatis **terkunci** — centang **Overwrite** pada baris itu untuk menggantinya. Hasil bisa disimpan sebagai PDF kalkulasi (skenario 2,5/5/7%, tanpa klaim garansi; harga per galon disembunyikan kecuali dipilih).
+
 ---
 
 ## 🚀 Cara Penggunaan

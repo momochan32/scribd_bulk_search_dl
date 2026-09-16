@@ -1,0 +1,1103 @@
+{
+  "fo_direct_701H1": {
+    "inputs": {
+      "operationHours": 8760,
+      "heaterEfficiency": 85,
+      "exchangeRates": {
+        "USD": 1,
+        "IDR": 17788,
+        "EUR": 0.86453
+      },
+      "scenarios": [
+        2.5,
+        5,
+        7
+      ],
+      "scenarioLabels": [
+        "minimum",
+        "mostLikely",
+        "ideal"
+      ],
+      "basisData": {
+        "directValue": 230.27,
+        "directUnit": "GJ/hr"
+      },
+      "costs": {
+        "marketPrice": 10,
+        "marketPriceCurrency": "USD",
+        "coatingMode": "estimated",
+        "actualPrice": 28,
+        "actualPriceCurrency": "USD",
+        "coatingEstPrice": 20600000,
+        "coatingEstCurrency": "IDR",
+        "coatingAreaFiber": 800
+      },
+      "fuelType": "fo"
+    },
+    "result": {
+      "calculationBasis": "Direct fuel energy input",
+      "baseline": {
+        "energyGJ": 2017165.2000000002,
+        "energyGcal": 481791.63083978224,
+        "costUSD": 53533296.4316586,
+        "costs": {
+          "USD": 53533296.4316586,
+          "IDR": 952250276926.3433,
+          "EUR": 46281140.764061816
+        },
+        "energyGJHr": 230.27,
+        "energyGcalHr": 54.99904461641349,
+        "annualEnergyMMBtu": 1911903.4439878075,
+        "annualConsumptionTon": 49199.1512195122,
+        "fuelPerTonProduct": null
+      },
+      "scenarios": [
+        {
+          "percentage": 2.5,
+          "label": "minimum",
+          "energySavingGJ": 50429.130000000005,
+          "energySavingMMBtu": 47797.58609969519,
+          "energySavingGcal": 12044.790770994556,
+          "financialSavingUSD": 1338332.410791465,
+          "financialSavings": {
+            "USD": 1338332.410791465,
+            "IDR": 23806256923.15858,
+            "EUR": 1157028.5191015454
+          },
+          "co2Red": 3736.798533,
+          "no2Red": 5.042913,
+          "co2Factor": 0.0741,
+          "roiPercent": 261.13860623723576,
+          "paybackMonths": 3.322823922102937,
+          "totalCoatingCostUSD": 370586.91252529796
+        },
+        {
+          "percentage": 5,
+          "label": "mostLikely",
+          "energySavingGJ": 100858.26000000001,
+          "energySavingMMBtu": 95595.17219939038,
+          "energySavingGcal": 24089.58154198911,
+          "financialSavingUSD": 2676664.82158293,
+          "financialSavings": {
+            "USD": 2676664.82158293,
+            "IDR": 47612513846.31716,
+            "EUR": 2314057.038203091
+          },
+          "co2Red": 7473.597066,
+          "no2Red": 10.085826,
+          "co2Factor": 0.0741,
+          "roiPercent": 622.2772124744715,
+          "paybackMonths": 1.6614119610514686,
+          "totalCoatingCostUSD": 370586.91252529796
+        },
+        {
+          "percentage": 7,
+          "label": "ideal",
+          "energySavingGJ": 141201.564,
+          "energySavingMMBtu": 133833.24107914654,
+          "energySavingGcal": 33725.414158784755,
+          "financialSavingUSD": 3747330.750216102,
+          "financialSavings": {
+            "USD": 3747330.750216102,
+            "IDR": 66657519384.844025,
+            "EUR": 3239679.853484327
+          },
+          "co2Red": 10463.035892400001,
+          "no2Red": 14.120156400000003,
+          "co2Factor": 0.0741,
+          "roiPercent": 911.1880974642601,
+          "paybackMonths": 1.1867228293224776,
+          "totalCoatingCostUSD": 370586.91252529796
+        }
+      ],
+      "assumptions": [
+        "LHV of 0.041000 GJ/kg (fo) used to estimate mass flow.",
+        "CO2 emission factor: 0.0741 ton CO2/GJ for fo (IPCC/IEA reference).",
+        "Coating cost estimated from: 800 m² Fiber."
+      ],
+      "isCostEquivalent": false,
+      "co2Factor": 0.0741
+    }
+  },
+  "ng_design_duty": {
+    "inputs": {
+      "operationHours": 8760,
+      "heaterEfficiency": 88,
+      "exchangeRates": {
+        "USD": 1,
+        "IDR": 17788,
+        "EUR": 0.86453
+      },
+      "scenarios": [
+        2.5,
+        5,
+        7
+      ],
+      "scenarioLabels": [
+        "minimum",
+        "mostLikely",
+        "ideal"
+      ],
+      "basisData": {
+        "designDuty": 45,
+        "designUnit": "MMBtu/hr"
+      },
+      "costs": {
+        "marketPrice": 10,
+        "marketPriceCurrency": "USD",
+        "coatingMode": "estimated",
+        "actualPrice": 7,
+        "actualPriceCurrency": "USD",
+        "coatingEstPrice": 85000000,
+        "coatingEstCurrency": "IDR",
+        "coatingAreaCastable": 463,
+        "coatingAreaFiber": 120
+      },
+      "fuelType": "ng"
+    },
+    "result": {
+      "calculationBasis": "Design heat duty",
+      "baseline": {
+        "energyGJ": 472617.13090909086,
+        "energyGcal": 112882.66239349643,
+        "costUSD": 3135681.818181818,
+        "costs": {
+          "USD": 3135681.818181818,
+          "IDR": 55777508181.81818,
+          "EUR": 2710891.002272727
+        },
+        "energyGJHr": 53.95172727272727,
+        "energyGcalHr": 12.88614867505667,
+        "annualEnergyMMBtu": 447954.5454545454,
+        "annualConsumptionTon": 9645.247569573283,
+        "fuelPerTonProduct": null
+      },
+      "scenarios": [
+        {
+          "percentage": 2.5,
+          "label": "minimum",
+          "energySavingGJ": 11815.428272727273,
+          "energySavingMMBtu": 11198.863636363636,
+          "energySavingGcal": 2822.066559837411,
+          "financialSavingUSD": 78392.04545454546,
+          "financialSavings": {
+            "USD": 78392.04545454546,
+            "IDR": 1394437704.5454545,
+            "EUR": 67772.27505681818
+          },
+          "co2Red": 662.8455261,
+          "no2Red": 1.1815428272727273,
+          "co2Factor": 0.0561,
+          "roiPercent": -90.93638151091677,
+          "paybackMonths": 132.39745267801737,
+          "totalCoatingCostUSD": 864908.927366764
+        },
+        {
+          "percentage": 5,
+          "label": "mostLikely",
+          "energySavingGJ": 23630.856545454546,
+          "energySavingMMBtu": 22397.727272727272,
+          "energySavingGcal": 5644.133119674822,
+          "financialSavingUSD": 156784.0909090909,
+          "financialSavings": {
+            "USD": 156784.0909090909,
+            "IDR": 2788875409.090909,
+            "EUR": 135544.55011363636
+          },
+          "co2Red": 1325.6910522,
+          "no2Red": 2.3630856545454546,
+          "co2Factor": 0.0561,
+          "roiPercent": -81.87276302183353,
+          "paybackMonths": 66.19872633900869,
+          "totalCoatingCostUSD": 864908.927366764
+        },
+        {
+          "percentage": 7,
+          "label": "ideal",
+          "energySavingGJ": 33083.19916363636,
+          "energySavingMMBtu": 31356.81818181818,
+          "energySavingGcal": 7901.786367544751,
+          "financialSavingUSD": 219497.72727272724,
+          "financialSavings": {
+            "USD": 219497.72727272724,
+            "IDR": 3904425572.727272,
+            "EUR": 189762.37015909087
+          },
+          "co2Red": 1855.9674730799998,
+          "no2Red": 3.308319916363636,
+          "co2Factor": 0.0561,
+          "roiPercent": -74.62186823056696,
+          "paybackMonths": 47.28480452786336,
+          "totalCoatingCostUSD": 864908.927366764
+        }
+      ],
+      "assumptions": [
+        "LHV of 0.049000 GJ/kg (ng) used to estimate mass flow.",
+        "Heater efficiency of 88% used to back-calculate fuel firing rate from design duty.",
+        "CO2 emission factor: 0.0561 ton CO2/GJ for ng (IPCC/IEA reference).",
+        "Coating cost estimated from: 120 m² Fiber, 463 m² Castable."
+      ],
+      "isCostEquivalent": false,
+      "co2Factor": 0.0561
+    }
+  },
+  "ng_fuel_rate_nm3": {
+    "inputs": {
+      "operationHours": 8000,
+      "heaterEfficiency": 85,
+      "exchangeRates": {
+        "USD": 1,
+        "IDR": 17788,
+        "EUR": 0.86453
+      },
+      "scenarios": [
+        2.5,
+        5,
+        7
+      ],
+      "scenarioLabels": [
+        "minimum",
+        "mostLikely",
+        "ideal"
+      ],
+      "basisData": {
+        "fuelRate": 24888,
+        "fuelRateUnit": "Nm3/hr",
+        "feedRate": 120,
+        "feedRateUnit": "m3/hr"
+      },
+      "costs": {
+        "marketPrice": 10,
+        "marketPriceCurrency": "USD",
+        "coatingMode": "estimated",
+        "coatingEstPrice": 5000,
+        "coatingEstCurrency": "USD",
+        "coatingAreaCastable": 1514
+      },
+      "fuelType": "ng"
+    },
+    "result": {
+      "calculationBasis": "Direct fuel rate (24888 Nm³/hr × 0.72 kg/Nm³ = 17919.4 kg/hr × 0.049000 GJ/kg = 878.05 GJ/hr)",
+      "baseline": {
+        "energyGJ": 7024389.120000001,
+        "energyGcal": 1677746.5176268276,
+        "costUSD": 66578353.376503244,
+        "costs": {
+          "USD": 66578353.376503244,
+          "IDR": 1184295749861.2397,
+          "EUR": 57558983.844588354
+        },
+        "energyGJHr": 878.0486400000001,
+        "energyGcalHr": 209.71831470335343,
+        "annualEnergyMMBtu": 6657835.337650325,
+        "annualConsumptionTon": 143354.88,
+        "fuelPerTonProduct": 175.68
+      },
+      "scenarios": [
+        {
+          "percentage": 2.5,
+          "label": "minimum",
+          "energySavingGJ": 175609.72800000003,
+          "energySavingMMBtu": 166445.88344125813,
+          "energySavingGcal": 41943.662940670685,
+          "financialSavingUSD": 1664458.834412581,
+          "financialSavings": {
+            "USD": 1664458.834412581,
+            "IDR": 29607393746.53099,
+            "EUR": 1438974.5961147088
+          },
+          "co2Red": 9851.705740800002,
+          "no2Red": 17.560972800000005,
+          "co2Factor": 0.0561,
+          "roiPercent": -23.119684322744526,
+          "paybackMonths": 15.608676804054955,
+          "totalCoatingCostUSD": 2165000
+        },
+        {
+          "percentage": 5,
+          "label": "mostLikely",
+          "energySavingGJ": 351219.45600000006,
+          "energySavingMMBtu": 332891.76688251627,
+          "energySavingGcal": 83887.32588134137,
+          "financialSavingUSD": 3328917.668825162,
+          "financialSavings": {
+            "USD": 3328917.668825162,
+            "IDR": 59214787493.06198,
+            "EUR": 2877949.1922294176
+          },
+          "co2Red": 19703.411481600004,
+          "no2Red": 35.12194560000001,
+          "co2Factor": 0.0561,
+          "roiPercent": 53.760631354510956,
+          "paybackMonths": 7.8043384020274775,
+          "totalCoatingCostUSD": 2165000
+        },
+        {
+          "percentage": 7,
+          "label": "ideal",
+          "energySavingGJ": 491707.23840000015,
+          "energySavingMMBtu": 466048.4736355228,
+          "energySavingGcal": 117442.25623387794,
+          "financialSavingUSD": 4660484.736355227,
+          "financialSavings": {
+            "USD": 4660484.736355227,
+            "IDR": 82900702490.28679,
+            "EUR": 4029128.869121185
+          },
+          "co2Red": 27584.776074240006,
+          "no2Red": 49.170723840000015,
+          "co2Factor": 0.0561,
+          "roiPercent": 115.26488389631535,
+          "paybackMonths": 5.574527430019626,
+          "totalCoatingCostUSD": 2165000
+        }
+      ],
+      "assumptions": [
+        "LHV of 0.049000 GJ/kg (ng) used for energy conversion.",
+        "Gas density assumed at 0.72 kg/Nm³ for ng unit cross-conversion.",
+        "Feed rate of 120 m3/hr used to calculate specific fuel consumption (kg/ton).",
+        "Using equivalent market energy price (10 USD/MMBtu) for financial estimation.",
+        "CO2 emission factor: 0.0561 ton CO2/GJ for ng (IPCC/IEA reference).",
+        "Coating cost estimated from: 1514 m² Castable."
+      ],
+      "isCostEquivalent": true,
+      "co2Factor": 0.0561
+    }
+  },
+  "lpg_kg_rate_market_fallback": {
+    "inputs": {
+      "operationHours": 8760,
+      "heaterEfficiency": 85,
+      "exchangeRates": {
+        "USD": 1,
+        "IDR": 17788,
+        "EUR": 0.86453
+      },
+      "scenarios": [
+        2.5,
+        5,
+        7
+      ],
+      "scenarioLabels": [
+        "minimum",
+        "mostLikely",
+        "ideal"
+      ],
+      "basisData": {
+        "fuelRate": 1500,
+        "fuelRateUnit": "kg/hr",
+        "feedRate": 30
+      },
+      "costs": {
+        "marketPrice": 10,
+        "marketPriceCurrency": "USD",
+        "coatingMode": "estimated",
+        "coatingEstPrice": 85000000,
+        "coatingEstCurrency": "IDR",
+        "coatingAreaCastable": 10,
+        "includeTubeCoating": true,
+        "tubeCoatingGallons": 4
+      },
+      "fuelType": "lpg"
+    },
+    "result": {
+      "calculationBasis": "Direct fuel rate (1500 kg/hr × 0.046000 GJ/kg = 69.00 GJ/hr)",
+      "baseline": {
+        "energyGJ": 604440,
+        "energyGcal": 144368.01375752364,
+        "costUSD": 5728985.001743983,
+        "costs": {
+          "USD": 5728985.001743983,
+          "IDR": 101907185211.02196,
+          "EUR": 4952879.403557725
+        },
+        "energyGJHr": 69,
+        "energyGcalHr": 16.48036686729722,
+        "annualEnergyMMBtu": 572898.5001743983,
+        "annualConsumptionTon": 13140,
+        "fuelPerTonProduct": 50
+      },
+      "scenarios": [
+        {
+          "percentage": 2.5,
+          "label": "minimum",
+          "energySavingGJ": 15111,
+          "energySavingMMBtu": 14322.462504359959,
+          "energySavingGcal": 3609.2003439380915,
+          "financialSavingUSD": 143224.62504359958,
+          "financialSavings": {
+            "USD": 143224.62504359958,
+            "IDR": 2547679630.2755494,
+            "EUR": 123821.98508894314
+          },
+          "co2Red": 953.5041,
+          "no2Red": 1.5111,
+          "co2Factor": 0.0631,
+          "roiPercent": 328.1814504664789,
+          "paybackMonths": 2.802550177483563,
+          "totalCoatingCostUSD": 33449.5165279964
+        },
+        {
+          "percentage": 5,
+          "label": "mostLikely",
+          "energySavingGJ": 30222,
+          "energySavingMMBtu": 28644.925008719918,
+          "energySavingGcal": 7218.400687876183,
+          "financialSavingUSD": 286449.25008719915,
+          "financialSavings": {
+            "USD": 286449.25008719915,
+            "IDR": 5095359260.551099,
+            "EUR": 247643.97017788628
+          },
+          "co2Red": 1907.0082,
+          "no2Red": 3.0222,
+          "co2Factor": 0.0631,
+          "roiPercent": 756.3629009329578,
+          "paybackMonths": 1.4012750887417815,
+          "totalCoatingCostUSD": 33449.5165279964
+        },
+        {
+          "percentage": 7,
+          "label": "ideal",
+          "energySavingGJ": 42310.8,
+          "energySavingMMBtu": 40102.89501220788,
+          "energySavingGcal": 10105.760963026656,
+          "financialSavingUSD": 401028.9501220788,
+          "financialSavings": {
+            "USD": 401028.9501220788,
+            "IDR": 7133502964.771538,
+            "EUR": 346701.5582490408
+          },
+          "co2Red": 2669.8114800000003,
+          "no2Red": 4.23108,
+          "co2Factor": 0.0631,
+          "roiPercent": 1098.908061306141,
+          "paybackMonths": 1.000910777672701,
+          "totalCoatingCostUSD": 33449.5165279964
+        }
+      ],
+      "assumptions": [
+        "LHV of 0.046000 GJ/kg (lpg) used for energy conversion.",
+        "Feed rate of 30 ton/hr used to calculate specific fuel consumption (kg/ton).",
+        "Using equivalent market energy price (10 USD/MMBtu) for financial estimation.",
+        "CO2 emission factor: 0.0631 ton CO2/GJ for lpg (IPCC/IEA reference).",
+        "Coating cost estimated from: 10 m² Castable, Tube Coating included."
+      ],
+      "isCostEquivalent": true,
+      "co2Factor": 0.0631
+    }
+  },
+  "refinery_gas_mt_price": {
+    "inputs": {
+      "operationHours": 8760,
+      "heaterEfficiency": 85,
+      "exchangeRates": {
+        "USD": 1,
+        "IDR": 17788,
+        "EUR": 0.86453
+      },
+      "scenarios": [
+        2.5,
+        5,
+        7
+      ],
+      "scenarioLabels": [
+        "minimum",
+        "mostLikely",
+        "ideal"
+      ],
+      "basisData": {
+        "directValue": 55,
+        "directUnit": "Gcal/hr"
+      },
+      "costs": {
+        "marketPrice": 450,
+        "marketPriceCurrency": "USD",
+        "coatingMode": "estimated",
+        "fuelPriceUnit": "MT",
+        "coatingEstPrice": 85000000,
+        "coatingEstCurrency": "IDR",
+        "coatingAreaCastable": 350
+      },
+      "fuelType": "refinery"
+    },
+    "result": {
+      "calculationBasis": "Direct fuel energy input",
+      "baseline": {
+        "energyGJ": 2017200.24,
+        "energyGcal": 481800,
+        "costUSD": 20172002.4,
+        "costs": {
+          "USD": 20172002.4,
+          "IDR": 358819578691.19995,
+          "EUR": 17439301.234872
+        },
+        "energyGJHr": 230.274,
+        "energyGcalHr": 55,
+        "annualEnergyMMBtu": 1911936.6554950639,
+        "annualConsumptionTon": 44826.672,
+        "fuelPerTonProduct": null
+      },
+      "scenarios": [
+        {
+          "percentage": 2.5,
+          "label": "minimum",
+          "energySavingGJ": 50430.006,
+          "energySavingMMBtu": 47798.416387376594,
+          "energySavingGcal": 12045,
+          "financialSavingUSD": 504300.06,
+          "financialSavings": {
+            "USD": 504300.06,
+            "IDR": 8970489467.28,
+            "EUR": 435982.53087180003
+          },
+          "co2Red": 3025.80036,
+          "no2Red": 5.0430006,
+          "co2Factor": 0.06,
+          "roiPercent": 5.5351702032941175,
+          "paybackMonths": 11.370616996101115,
+          "totalCoatingCostUSD": 477850.2361142343
+        },
+        {
+          "percentage": 5,
+          "label": "mostLikely",
+          "energySavingGJ": 100860.012,
+          "energySavingMMBtu": 95596.83277475319,
+          "energySavingGcal": 24090,
+          "financialSavingUSD": 1008600.12,
+          "financialSavings": {
+            "USD": 1008600.12,
+            "IDR": 17940978934.56,
+            "EUR": 871965.0617436001
+          },
+          "co2Red": 6051.60072,
+          "no2Red": 10.0860012,
+          "co2Factor": 0.06,
+          "roiPercent": 111.07034040658823,
+          "paybackMonths": 5.685308498050557,
+          "totalCoatingCostUSD": 477850.2361142343
+        },
+        {
+          "percentage": 7,
+          "label": "ideal",
+          "energySavingGJ": 141204.0168,
+          "energySavingMMBtu": 133835.56588465447,
+          "energySavingGcal": 33726.00000000001,
+          "financialSavingUSD": 1412040.168,
+          "financialSavings": {
+            "USD": 1412040.168,
+            "IDR": 25117370508.384003,
+            "EUR": 1220751.08644104
+          },
+          "co2Red": 8472.241008,
+          "no2Red": 14.120401680000002,
+          "co2Factor": 0.06,
+          "roiPercent": 195.49847656922356,
+          "paybackMonths": 4.060934641464684,
+          "totalCoatingCostUSD": 477850.2361142343
+        }
+      ],
+      "assumptions": [
+        "LHV of 0.045000 GJ/kg (refinery) used to estimate mass flow.",
+        "Using equivalent market energy price (450 USD/MMBtu) for financial estimation.",
+        "CO2 emission factor: 0.0600 ton CO2/GJ for refinery (IPCC/IEA reference).",
+        "Coating cost estimated from: 350 m² Castable."
+      ],
+      "isCostEquivalent": true,
+      "co2Factor": 0.06
+    }
+  },
+  "mixed_composition_kcal": {
+    "inputs": {
+      "operationHours": 8760,
+      "heaterEfficiency": 85,
+      "exchangeRates": {
+        "USD": 1,
+        "IDR": 17788,
+        "EUR": 0.86453
+      },
+      "scenarios": [
+        2.5,
+        5,
+        7
+      ],
+      "scenarioLabels": [
+        "minimum",
+        "mostLikely",
+        "ideal"
+      ],
+      "basisData": {
+        "fuelRate": 2000,
+        "fuelRateUnit": "kg/hr"
+      },
+      "costs": {
+        "marketPrice": 10,
+        "marketPriceCurrency": "USD",
+        "coatingMode": "estimated",
+        "actualPriceCurrency": "USD",
+        "coatingEstPrice": 6000,
+        "coatingEstCurrency": "USD",
+        "coatingAreaFiber": 250
+      },
+      "fuelType": "mixed",
+      "lhvUnit": "kcal/kg",
+      "fuelComposition": [
+        {
+          "name": "LPG",
+          "percentage": 70,
+          "lhv": 11000,
+          "price": 12.5
+        },
+        {
+          "name": "Fuel Oil",
+          "percentage": 30,
+          "lhv": 9800,
+          "price": 10
+        }
+      ]
+    },
+    "result": {
+      "calculationBasis": "Direct fuel rate (2000 kg/hr × 0.044518 GJ/kg = 89.04 GJ/hr)",
+      "baseline": {
+        "energyGJ": 779951.1551999999,
+        "energyGcal": 186288.13298939524,
+        "costUSD": 8729970.155138684,
+        "costs": {
+          "USD": 8729970.155138684,
+          "IDR": 155288709119.60693,
+          "EUR": 7547321.098222047
+        },
+        "energyGJHr": 89.03551999999999,
+        "energyGcalHr": 21.265768606095346,
+        "annualEnergyMMBtu": 739250.9546412701,
+        "annualConsumptionTon": 17520,
+        "fuelPerTonProduct": null
+      },
+      "scenarios": [
+        {
+          "percentage": 2.5,
+          "label": "minimum",
+          "energySavingGJ": 19498.778879999998,
+          "energySavingMMBtu": 18481.273866031755,
+          "energySavingGcal": 4657.203324734881,
+          "financialSavingUSD": 218249.2538784671,
+          "financialSavings": {
+            "USD": 218249.2538784671,
+            "IDR": 3882217727.990173,
+            "EUR": 188683.02745555117
+          },
+          "co2Red": 1289.6389726080001,
+          "no2Red": 1.9498778879999998,
+          "co2Factor": 0.06613947368421054,
+          "roiPercent": -63.62512435358882,
+          "paybackMonths": 32.98980350241814,
+          "totalCoatingCostUSD": 600000
+        },
+        {
+          "percentage": 5,
+          "label": "mostLikely",
+          "energySavingGJ": 38997.557759999996,
+          "energySavingMMBtu": 36962.54773206351,
+          "energySavingGcal": 9314.406649469762,
+          "financialSavingUSD": 436498.5077569342,
+          "financialSavings": {
+            "USD": 436498.5077569342,
+            "IDR": 7764435455.980346,
+            "EUR": 377366.05491110234
+          },
+          "co2Red": 2579.2779452160003,
+          "no2Red": 3.8997557759999997,
+          "co2Factor": 0.06613947368421054,
+          "roiPercent": -27.250248707177633,
+          "paybackMonths": 16.49490175120907,
+          "totalCoatingCostUSD": 600000
+        },
+        {
+          "percentage": 7,
+          "label": "ideal",
+          "energySavingGJ": 54596.580864,
+          "energySavingMMBtu": 51747.56682488892,
+          "energySavingGcal": 13040.169309257668,
+          "financialSavingUSD": 611097.910859708,
+          "financialSavings": {
+            "USD": 611097.910859708,
+            "IDR": 10870209638.372486,
+            "EUR": 528312.4768755434
+          },
+          "co2Red": 3610.989123302401,
+          "no2Red": 5.4596580864,
+          "co2Factor": 0.06613947368421054,
+          "roiPercent": 1.8496518099513293,
+          "paybackMonths": 11.782072679435048,
+          "totalCoatingCostUSD": 600000
+        }
+      ],
+      "assumptions": [
+        "LHV of 0.044518 GJ/kg (mixed) used for energy conversion.",
+        "CO2 emission factor: 0.0661 ton CO2/GJ for mixed (IPCC/IEA reference).",
+        "Coating cost estimated from: 250 m² Fiber."
+      ],
+      "isCostEquivalent": false,
+      "co2Factor": 0.06613947368421054
+    }
+  },
+  "mixed_volumetric_custom": {
+    "inputs": {
+      "operationHours": 8760,
+      "heaterEfficiency": 85,
+      "exchangeRates": {
+        "USD": 1,
+        "IDR": 17788,
+        "EUR": 0.86453
+      },
+      "scenarios": [
+        2.5,
+        5,
+        7
+      ],
+      "scenarioLabels": [
+        "minimum",
+        "mostLikely",
+        "ideal"
+      ],
+      "basisData": {
+        "fuelRate": 900,
+        "fuelRateUnit": "kg/hr"
+      },
+      "costs": {
+        "marketPrice": 10,
+        "marketPriceCurrency": "USD",
+        "coatingMode": "estimated",
+        "actualPrice": 9,
+        "actualPriceCurrency": "USD",
+        "coatingEstPrice": 6000,
+        "coatingEstCurrency": "USD",
+        "coatingAreaCastable": 90
+      },
+      "fuelType": "mixed",
+      "lhvUnit": "GJ/Nm3",
+      "customLHV": 0.038
+    },
+    "result": {
+      "calculationBasis": "Direct fuel rate (900 kg/hr ÷ 0.9 kg/Nm³ = 1000.0 Nm³/hr × 0.038000 GJ/Nm³ = 38.00 GJ/hr)",
+      "baseline": {
+        "energyGJ": 332880,
+        "energyGcal": 79507.02206936086,
+        "costUSD": 2839583.870429626,
+        "costs": {
+          "USD": 2839583.870429626,
+          "IDR": 50510517887.202194,
+          "EUR": 2454905.443502525
+        },
+        "energyGJHr": 38,
+        "energyGcalHr": 9.076144071844846,
+        "annualEnergyMMBtu": 315509.31893662515,
+        "annualConsumptionTon": 7884,
+        "fuelPerTonProduct": null
+      },
+      "scenarios": [
+        {
+          "percentage": 2.5,
+          "label": "minimum",
+          "energySavingGJ": 8322,
+          "energySavingMMBtu": 7887.732973415629,
+          "energySavingGcal": 1987.6755517340214,
+          "financialSavingUSD": 70989.59676074066,
+          "financialSavings": {
+            "USD": 70989.59676074066,
+            "IDR": 1262762947.180055,
+            "EUR": 61372.63608756313
+          },
+          "co2Red": 499.32,
+          "no2Red": 0.8322,
+          "co2Factor": 0.06,
+          "roiPercent": -54.493848230294454,
+          "paybackMonths": 26.370061043018506,
+          "totalCoatingCostUSD": 156000
+        },
+        {
+          "percentage": 5,
+          "label": "mostLikely",
+          "energySavingGJ": 16644,
+          "energySavingMMBtu": 15775.465946831258,
+          "energySavingGcal": 3975.3511034680428,
+          "financialSavingUSD": 141979.19352148133,
+          "financialSavings": {
+            "USD": 141979.19352148133,
+            "IDR": 2525525894.36011,
+            "EUR": 122745.27217512626
+          },
+          "co2Red": 998.64,
+          "no2Red": 1.6644,
+          "co2Factor": 0.06,
+          "roiPercent": -8.987696460588893,
+          "paybackMonths": 13.185030521509253,
+          "totalCoatingCostUSD": 156000
+        },
+        {
+          "percentage": 7,
+          "label": "ideal",
+          "energySavingGJ": 23301.600000000002,
+          "energySavingMMBtu": 22085.652325563762,
+          "energySavingGcal": 5565.49154485526,
+          "financialSavingUSD": 198770.87093007387,
+          "financialSavings": {
+            "USD": 198770.87093007387,
+            "IDR": 3535736252.104154,
+            "EUR": 171843.38104517676
+          },
+          "co2Red": 1398.096,
+          "no2Red": 2.3301600000000002,
+          "co2Factor": 0.06,
+          "roiPercent": 27.417224955175556,
+          "paybackMonths": 9.417878943935179,
+          "totalCoatingCostUSD": 156000
+        }
+      ],
+      "assumptions": [
+        "LHV of 0.038000 GJ/Nm³ (mixed) used for energy conversion.",
+        "Gas density assumed at 0.9 kg/Nm³ for mixed unit cross-conversion.",
+        "CO2 emission factor: 0.0600 ton CO2/GJ for mixed (IPCC/IEA reference).",
+        "Coating cost estimated from: 90 m² Castable."
+      ],
+      "isCostEquivalent": false,
+      "co2Factor": 0.06
+    }
+  },
+  "fixed_cost_eur": {
+    "inputs": {
+      "operationHours": 8760,
+      "heaterEfficiency": 85,
+      "exchangeRates": {
+        "USD": 1,
+        "IDR": 17788,
+        "EUR": 0.86453
+      },
+      "scenarios": [
+        2.5,
+        5,
+        7
+      ],
+      "scenarioLabels": [
+        "minimum",
+        "mostLikely",
+        "ideal"
+      ],
+      "basisData": {
+        "directValue": 30,
+        "directUnit": "Gcal/hr"
+      },
+      "costs": {
+        "marketPrice": 10,
+        "marketPriceCurrency": "USD",
+        "coatingMode": "fixed",
+        "actualPrice": 600,
+        "actualPriceCurrency": "USD",
+        "fuelPriceUnit": "MT",
+        "coatingCost": 250000,
+        "coatingCostCurrency": "EUR"
+      },
+      "fuelType": "fo"
+    },
+    "result": {
+      "calculationBasis": "Direct fuel energy input",
+      "baseline": {
+        "energyGJ": 1100291.04,
+        "energyGcal": 262800,
+        "costUSD": 16101820.097560978,
+        "costs": {
+          "USD": 16101820.097560978,
+          "IDR": 286419175895.4147,
+          "EUR": 13920506.528944392
+        },
+        "energyGJHr": 125.604,
+        "energyGcalHr": 30,
+        "annualEnergyMMBtu": 1042874.539360944,
+        "annualConsumptionTon": 26836.366829268292,
+        "fuelPerTonProduct": null
+      },
+      "scenarios": [
+        {
+          "percentage": 2.5,
+          "label": "minimum",
+          "energySavingGJ": 27507.276,
+          "energySavingMMBtu": 26071.863484023597,
+          "energySavingGcal": 6570.000000000001,
+          "financialSavingUSD": 402545.50243902445,
+          "financialSavings": {
+            "USD": 402545.50243902445,
+            "IDR": 7160479397.385367,
+            "EUR": 348012.6632236098
+          },
+          "co2Red": 2038.2891516000002,
+          "no2Red": 2.7507276000000003,
+          "co2Factor": 0.0741,
+          "roiPercent": 39.20506528944392,
+          "paybackMonths": 8.620375971986972,
+          "totalCoatingCostUSD": 289174.4647380658
+        },
+        {
+          "percentage": 5,
+          "label": "mostLikely",
+          "energySavingGJ": 55014.552,
+          "energySavingMMBtu": 52143.726968047195,
+          "energySavingGcal": 13140.000000000002,
+          "financialSavingUSD": 805091.0048780489,
+          "financialSavings": {
+            "USD": 805091.0048780489,
+            "IDR": 14320958794.770735,
+            "EUR": 696025.3264472196
+          },
+          "co2Red": 4076.5783032000004,
+          "no2Red": 5.5014552000000005,
+          "co2Factor": 0.0741,
+          "roiPercent": 178.41013057888784,
+          "paybackMonths": 4.310187985993486,
+          "totalCoatingCostUSD": 289174.4647380658
+        },
+        {
+          "percentage": 7,
+          "label": "ideal",
+          "energySavingGJ": 77020.37280000001,
+          "energySavingMMBtu": 73001.21775526609,
+          "energySavingGcal": 18396.000000000004,
+          "financialSavingUSD": 1127127.4068292684,
+          "financialSavings": {
+            "USD": 1127127.4068292684,
+            "IDR": 20049342312.679028,
+            "EUR": 974435.4570261075
+          },
+          "co2Red": 5707.2096244800005,
+          "no2Red": 7.702037280000002,
+          "co2Factor": 0.0741,
+          "roiPercent": 289.77418281044294,
+          "paybackMonths": 3.0787057042810613,
+          "totalCoatingCostUSD": 289174.4647380658
+        }
+      ],
+      "assumptions": [
+        "LHV of 0.041000 GJ/kg (fo) used to estimate mass flow.",
+        "CO2 emission factor: 0.0741 ton CO2/GJ for fo (IPCC/IEA reference)."
+      ],
+      "isCostEquivalent": false,
+      "co2Factor": 0.0741
+    }
+  },
+  "no_coating_cost": {
+    "inputs": {
+      "operationHours": 8760,
+      "heaterEfficiency": 85,
+      "exchangeRates": {
+        "USD": 1,
+        "IDR": 17788,
+        "EUR": 0.86453
+      },
+      "scenarios": [
+        2.5,
+        5,
+        7
+      ],
+      "scenarioLabels": [
+        "minimum",
+        "mostLikely",
+        "ideal"
+      ],
+      "basisData": {
+        "directValue": 10,
+        "directUnit": "GJ/hr"
+      },
+      "costs": {
+        "marketPrice": 10,
+        "marketPriceCurrency": "USD",
+        "coatingMode": "estimated",
+        "actualPrice": 6.5,
+        "actualPriceCurrency": "USD"
+      },
+      "fuelType": "ng"
+    },
+    "result": {
+      "calculationBasis": "Direct fuel energy input",
+      "baseline": {
+        "energyGJ": 87600,
+        "energyGcal": 20922.900544568645,
+        "costUSD": 539686.9929179114,
+        "costs": {
+          "USD": 539686.9929179114,
+          "IDR": 9599952230.023808,
+          "EUR": 466575.5959873219
+        },
+        "energyGJHr": 10,
+        "energyGcalHr": 2.3884589662749596,
+        "annualEnergyMMBtu": 83028.76814121715,
+        "annualConsumptionTon": 1787.7551020408164,
+        "fuelPerTonProduct": null
+      },
+      "scenarios": [
+        {
+          "percentage": 2.5,
+          "label": "minimum",
+          "energySavingGJ": 2190,
+          "energySavingMMBtu": 2075.719203530429,
+          "energySavingGcal": 523.0725136142162,
+          "financialSavingUSD": 13492.174822947785,
+          "financialSavings": {
+            "USD": 13492.174822947785,
+            "IDR": 239998805.7505952,
+            "EUR": 11664.389899683048
+          },
+          "co2Red": 122.859,
+          "no2Red": 0.219,
+          "co2Factor": 0.0561,
+          "roiPercent": null,
+          "paybackMonths": null,
+          "totalCoatingCostUSD": 0
+        },
+        {
+          "percentage": 5,
+          "label": "mostLikely",
+          "energySavingGJ": 4380,
+          "energySavingMMBtu": 4151.438407060858,
+          "energySavingGcal": 1046.1450272284324,
+          "financialSavingUSD": 26984.34964589557,
+          "financialSavings": {
+            "USD": 26984.34964589557,
+            "IDR": 479997611.5011904,
+            "EUR": 23328.779799366097
+          },
+          "co2Red": 245.718,
+          "no2Red": 0.438,
+          "co2Factor": 0.0561,
+          "roiPercent": null,
+          "paybackMonths": null,
+          "totalCoatingCostUSD": 0
+        },
+        {
+          "percentage": 7,
+          "label": "ideal",
+          "energySavingGJ": 6132.000000000001,
+          "energySavingMMBtu": 5812.013769885201,
+          "energySavingGcal": 1464.6030381198054,
+          "financialSavingUSD": 37778.0895042538,
+          "financialSavings": {
+            "USD": 37778.0895042538,
+            "IDR": 671996656.1016667,
+            "EUR": 32660.29171911254
+          },
+          "co2Red": 344.00520000000006,
+          "no2Red": 0.6132000000000001,
+          "co2Factor": 0.0561,
+          "roiPercent": null,
+          "paybackMonths": null,
+          "totalCoatingCostUSD": 0
+        }
+      ],
+      "assumptions": [
+        "LHV of 0.049000 GJ/kg (ng) used to estimate mass flow.",
+        "CO2 emission factor: 0.0561 ton CO2/GJ for ng (IPCC/IEA reference).",
+        "Coating cost estimated from: ."
+      ],
+      "isCostEquivalent": false,
+      "co2Factor": 0.0561
+    }
+  }
+}
