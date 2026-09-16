@@ -11,11 +11,17 @@ datas = [('assets', 'assets')]
 binaries = []
 hiddenimports = []
 
-# Collect all selenium and pypdf modules and drivers
+# Collect all selenium, pypdf, customtkinter, and PIL modules and assets
 tmp_ret = collect_all('selenium')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 tmp_ret = collect_all('pypdf')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+tmp_ret = collect_all('customtkinter')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+tmp_ret = collect_all('PIL')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 icon_file = 'assets/momo_rescribd.ico' if sys.platform == 'win32' else 'assets/momo_rescribd.icns'

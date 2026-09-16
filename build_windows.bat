@@ -33,6 +33,8 @@ pyinstaller --name "Momo Rescribd" ^
     --add-data "assets;assets" ^
     --collect-all selenium ^
     --collect-all pypdf ^
+    --collect-all customtkinter ^
+    --collect-all PIL ^
     --clean ^
     --noconfirm ^
     momo_rescribd_gui.py

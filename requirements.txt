@@ -5,3 +5,6 @@ trio-websocket~=0.9
 typing_extensions~=4.9
 websocket-client~=1.8
 pypdf>=6.0
+customtkinter>=5.2.0
+pillow>=10.0.0
+darkdetect>=0.8.0

@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
 """
-Momo Rescribd — Modern GUI for Scribd Bulk Search & Downloader.
-Cross-platform desktop app for macOS, Windows, and Linux.
-Features:
-- Multi-keyword queue search & automated bulk download
-- Real-time Stop / Cancellation with instant browser cleanup
-- Dynamic random delay range (1000 - 5000 ms) to avoid rate limits
-- Modern, clean, and elegant card-based UI/UX
-- Ready for compilation to macOS .app / .dmg and Windows .exe
+Momo Rescribd — Modern Desktop Interface for Scribd Bulk Search & Downloader.
+Built with CustomTkinter for native dark-mode styling, high contrast, and cross-platform reliability.
+Supports macOS, Windows, and Linux.
 """
 
 import os
@@ -18,31 +13,32 @@ import sys
 import threading
 import time
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
-from tkinter.scrolledtext import ScrolledText
+from tkinter import filedialog, messagebox
+
+import customtkinter as ctk
+from PIL import Image
 
 import scribd_engine as engine
 
 
 # ---------------------------------------------------------------------------
-# Cross-Platform Helpers & Fonts
+# Cross-Platform Configurations
 # ---------------------------------------------------------------------------
 IS_WINDOWS = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
 
-if IS_WINDOWS:
-    FONT_FAMILY_MAIN = "Segoe UI"
-    FONT_FAMILY_MONO = "Consolas"
-elif IS_MAC:
-    FONT_FAMILY_MAIN = "SF Pro Text"
-    FONT_FAMILY_MONO = "Menlo"
-else:
-    FONT_FAMILY_MAIN = "Ubuntu"
-    FONT_FAMILY_MONO = "Monospace"
+FONT_FAMILY_MAIN = "Segoe UI" if IS_WINDOWS else ("SF Pro Display" if IS_MAC else "Ubuntu")
+FONT_FAMILY_MONO = "Consolas" if IS_WINDOWS else ("Menlo" if IS_MAC else "Monospace")
+
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
 
 
+# ---------------------------------------------------------------------------
+# Queue Writer for Thread-Safe Console Redirection
+# ---------------------------------------------------------------------------
 class QueueWriter:
-    """Redirects stdout and stderr to a thread-safe queue for the GUI."""
+    """Redirects stdout/stderr writes to a thread-safe Queue for UI rendering."""
 
     def __init__(self, log_queue):
         self.queue = log_queue
@@ -56,38 +52,37 @@ class QueueWriter:
 
 
 # ---------------------------------------------------------------------------
-# Main Application Class
+# Main Application Window
 # ---------------------------------------------------------------------------
-class MomoRescribdApp(tk.Tk):
+class MomoRescribdApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
         self.title("Momo Rescribd — Scribd Bulk Search & Downloader")
-        self.geometry("860x780")
-        self.minsize(760, 680)
+        self.geometry("920x820")
+        self.minsize(780, 700)
 
-        # Set Window Icon (cross-platform)
+        # Set App Icon
         self._set_app_icon()
 
         # State Variables
-        self.output_dir_var = tk.StringVar(value="")
-        self.single_url_var = tk.StringVar(value="")
-        self.file_path_var = tk.StringVar(value="")
-        self.limit_var = tk.IntVar(value=5)
-        self.min_delay_var = tk.DoubleVar(value=1.0)
-        self.max_delay_var = tk.DoubleVar(value=5.0)
-
         self.is_running = False
         self.worker_thread = None
         self.stop_event = threading.Event()
         self.log_queue = queue.Queue()
 
-        self._configure_theme()
+        self.output_dir_var = tk.StringVar(value="")
+        self.single_url_var = tk.StringVar(value="")
+        self.file_path_var = tk.StringVar(value="")
+        self.limit_var = tk.StringVar(value="5")
+        self.min_delay_var = tk.StringVar(value="1.0")
+        self.max_delay_var = tk.StringVar(value="5.0")
+
         self._build_ui()
         self._poll_log_queue()
 
     def _set_app_icon(self):
-        """Set application icon for Windows and macOS/Linux."""
+        """Set window icon for Windows and macOS."""
         base_dir = os.path.dirname(os.path.abspath(__file__))
         ico_path = os.path.join(base_dir, "assets", "momo_rescribd.ico")
         if IS_WINDOWS and os.path.exists(ico_path):
@@ -96,515 +91,452 @@ class MomoRescribdApp(tk.Tk):
             except Exception:
                 pass
 
-    def _configure_theme(self):
-        """Apply modern, elegant color palette and widget styling."""
-        self.style = ttk.Style(self)
-
-        # Base color tokens
-        self.COLOR_BG = "#f8fafc"         # Slate-50
-        self.COLOR_CARD = "#ffffff"       # White
-        self.COLOR_BORDER = "#e2e8f0"     # Slate-200
-        self.COLOR_TEXT = "#0f172a"       # Slate-900
-        self.COLOR_SUBTEXT = "#64748b"    # Slate-500
-        self.COLOR_PRIMARY = "#4f46e5"    # Indigo-600
-        self.COLOR_DANGER = "#ef4444"     # Red-500
-
-        self.configure(bg=self.COLOR_BG)
-
-        try:
-            if IS_MAC:
-                self.style.theme_use("aqua")
-            elif "clam" in self.style.theme_names():
-                self.style.theme_use("clam")
-        except Exception:
-            pass
-
-        # Configure custom TTK styles
-        self.style.configure(".", font=(FONT_FAMILY_MAIN, 11), background=self.COLOR_BG)
-        self.style.configure("TFrame", background=self.COLOR_BG)
-
-        # Card frames
-        self.style.configure(
-            "Card.TFrame",
-            background=self.COLOR_CARD,
-            relief="solid",
-            borderwidth=1,
-        )
-
-        # Typography
-        self.style.configure(
-            "AppTitle.TLabel",
-            font=(FONT_FAMILY_MAIN, 18, "bold"),
-            foreground=self.COLOR_TEXT,
-            background=self.COLOR_BG,
-        )
-        self.style.configure(
-            "AppSubtitle.TLabel",
-            font=(FONT_FAMILY_MAIN, 11),
-            foreground=self.COLOR_SUBTEXT,
-            background=self.COLOR_BG,
-        )
-        self.style.configure(
-            "CardTitle.TLabel",
-            font=(FONT_FAMILY_MAIN, 12, "bold"),
-            foreground=self.COLOR_TEXT,
-            background=self.COLOR_CARD,
-        )
-        self.style.configure(
-            "CardSubtitle.TLabel",
-            font=(FONT_FAMILY_MAIN, 10),
-            foreground=self.COLOR_SUBTEXT,
-            background=self.COLOR_CARD,
-        )
-        self.style.configure(
-            "Muted.TLabel",
-            font=(FONT_FAMILY_MAIN, 10),
-            foreground=self.COLOR_SUBTEXT,
-            background=self.COLOR_CARD,
-        )
-
-        # Tabs styling
-        self.style.configure(
-            "TNotebook",
-            background=self.COLOR_BG,
-            borderwidth=0,
-        )
-        self.style.configure(
-            "TNotebook.Tab",
-            font=(FONT_FAMILY_MAIN, 11, "bold"),
-            padding=(14, 6),
-        )
-
-        # Buttons
-        self.style.configure(
-            "Primary.TButton",
-            font=(FONT_FAMILY_MAIN, 12, "bold"),
-            padding=(16, 8),
-        )
-        self.style.configure(
-            "Danger.TButton",
-            font=(FONT_FAMILY_MAIN, 12, "bold"),
-            padding=(14, 8),
-        )
-        self.style.configure(
-            "Secondary.TButton",
-            font=(FONT_FAMILY_MAIN, 11),
-            padding=(10, 6),
-        )
-
     # ---------------------------------------------------------------------------
-    # UI Layout Construction
+    # UI Component Construction
     # ---------------------------------------------------------------------------
     def _build_ui(self):
-        container = ttk.Frame(self, padding="20 16 20 16")
-        container.pack(fill=tk.BOTH, expand=True)
+        # Root layout container
+        self.main_container = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_container.pack(fill="both", expand=True, padx=22, pady=18)
 
-        # 1. Header Area (Branding & Status Pill)
-        header_frame = ttk.Frame(container)
-        header_frame.pack(fill=tk.X, pady=(0, 14))
+        # 1. Header Area with Mascot Logo
+        self._build_header(self.main_container)
 
-        left_header = ttk.Frame(header_frame)
-        left_header.pack(side=tk.LEFT, fill=tk.Y)
+        # 2. Main Tabview (Modes)
+        self._build_tabs(self.main_container)
 
-        title_label = ttk.Label(left_header, text="📚 Momo Rescribd", style="AppTitle.TLabel")
-        title_label.pack(anchor=tk.W)
+        # 3. Settings Card (Random Delay & Folder)
+        self._build_settings_card(self.main_container)
 
-        subtitle_label = ttk.Label(
-            left_header,
-            text="Scribd Bulk Search & Downloader — Multi-Keyword, PDF Bersih, & Bebas Deteksi Bot",
-            style="AppSubtitle.TLabel",
+        # 4. Action Bar (Start, Stop, Open Folder, Progress Bar)
+        self._build_action_bar(self.main_container)
+
+        # 5. Activity Log Console
+        self._build_console_card(self.main_container)
+
+    def _build_header(self, parent):
+        header_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        header_frame.pack(fill="x", pady=(0, 14))
+
+        # Left: Logo + App Titles
+        left_box = ctk.CTkFrame(header_frame, fg_color="transparent")
+        left_box.pack(side="left", fill="y")
+
+        # Load Mascot Logo
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        logo_path = os.path.join(base_dir, "assets", "logo.png")
+        if os.path.exists(logo_path):
+            try:
+                pil_logo = Image.open(logo_path)
+                self.logo_image = ctk.CTkImage(light_image=pil_logo, dark_image=pil_logo, size=(58, 58))
+                logo_label = ctk.CTkLabel(left_box, image=self.logo_image, text="")
+                logo_label.pack(side="left", padx=(0, 14))
+            except Exception:
+                pass
+
+        titles_box = ctk.CTkFrame(left_box, fg_color="transparent")
+        titles_box.pack(side="left", fill="y")
+
+        app_title = ctk.CTkLabel(
+            titles_box,
+            text="Momo Rescribd",
+            font=(FONT_FAMILY_MAIN, 22, "bold"),
+            text_color="#f8fafc",
         )
-        subtitle_label.pack(anchor=tk.W, pady=(2, 0))
+        app_title.pack(anchor="w")
 
-        right_header = ttk.Frame(header_frame)
-        right_header.pack(side=tk.RIGHT, fill=tk.Y)
+        app_subtitle = ctk.CTkLabel(
+            titles_box,
+            text="Scribd Bulk Search & Document Downloader",
+            font=(FONT_FAMILY_MAIN, 12),
+            text_color="#94a3b8",
+        )
+        app_subtitle.pack(anchor="w", pady=(2, 0))
 
-        # Status Pill Badge
-        self.status_badge = tk.Label(
-            right_header,
-            text="● Siap Digunakan",
+        # Right: Status Indicator Badge
+        right_box = ctk.CTkFrame(header_frame, fg_color="transparent")
+        right_box.pack(side="right", fill="y")
+
+        self.status_badge = ctk.CTkLabel(
+            right_box,
+            text="SIAP",
             font=(FONT_FAMILY_MAIN, 11, "bold"),
-            bg="#ecfdf5",
-            fg="#047857",
-            padx=12,
-            pady=4,
-            relief="solid",
-            bd=1,
+            text_color="#10b981",
+            fg_color="#064e3b",
+            corner_radius=8,
+            padx=16,
+            pady=6,
         )
-        self.status_badge.pack(anchor=tk.E, pady=(2, 0))
+        self.status_badge.pack(anchor="e", pady=(4, 0))
 
-        # 2. Mode Selector / Tabs Area
-        self.notebook = ttk.Notebook(container)
-        self.notebook.pack(fill=tk.X, pady=(0, 10))
+    def _build_tabs(self, parent):
+        self.tabview = ctk.CTkTabview(parent, height=180, corner_radius=10)
+        self.tabview.pack(fill="x", pady=(0, 12))
 
-        # --- Tab 1: Multi-Keyword Search ---
-        self.tab_search = ttk.Frame(self.notebook, padding="14 12 14 12")
-        self.notebook.add(self.tab_search, text="  🔍 Multi Pencarian Kata Kunci  ")
-        self._build_tab_search()
+        # Tab 1: Multi-Keyword Search
+        self.tab_search = self.tabview.add("Pencarian Kata Kunci")
+        self._build_search_tab(self.tab_search)
 
-        # --- Tab 2: Single Document ---
-        self.tab_single = ttk.Frame(self.notebook, padding="14 12 14 12")
-        self.notebook.add(self.tab_single, text="  🔗 Unduh 1 Link Scribd  ")
-        self._build_tab_single()
+        # Tab 2: Single URL
+        self.tab_single = self.tabview.add("Tautan Tunggal")
+        self._build_single_tab(self.tab_single)
 
-        # --- Tab 3: File of URLs ---
-        self.tab_file = ttk.Frame(self.notebook, padding="14 12 14 12")
-        self.notebook.add(self.tab_file, text="  📄 Unduh dari File Teks (urls.txt)  ")
-        self._build_tab_file()
+        # Tab 3: Batch URL File
+        self.tab_file = self.tabview.add("Berkas Daftar URL")
+        self._build_file_tab(self.tab_file)
 
-        # 3. Settings Card (Random Delay & Output Directory)
-        self._build_settings_card(container)
-
-        # 4. Action & Progress Bar Area
-        self._build_action_bar(container)
-
-        # 5. Live Console Terminal Output
-        self._build_terminal_console(container)
-
-    def _build_tab_search(self):
-        desc_lbl = ttk.Label(
-            self.tab_search,
-            text="Masukkan satu atau beberapa kata kunci pencarian. Sistem akan mencari dan mengunduh dokumen secara berurutan:",
-            style="AppSubtitle.TLabel",
-        )
-        desc_lbl.pack(anchor=tk.W, pady=(0, 6))
-
-        # Multi-line keywords textbox
-        text_frame = tk.Frame(self.tab_search, bg=self.COLOR_CARD, relief="solid", bd=1)
-        text_frame.pack(fill=tk.X, pady=(0, 6))
-
-        self.keyword_text = tk.Text(
-            text_frame,
-            height=4,
+    def _build_search_tab(self, tab):
+        lbl = ctk.CTkLabel(
+            tab,
+            text="Daftar Kata Kunci (masukkan satu kata kunci per baris atau pisahkan dengan tanda koma):",
             font=(FONT_FAMILY_MAIN, 11),
-            wrap=tk.WORD,
-            padx=8,
-            pady=8,
-            relief="flat",
+            text_color="#cbd5e1",
         )
-        self.keyword_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        lbl.pack(anchor="w", pady=(0, 6))
 
-        scroll_kw = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=self.keyword_text.yview)
-        scroll_kw.pack(side=tk.RIGHT, fill=tk.Y)
-        self.keyword_text.config(yscrollcommand=scroll_kw.set)
+        self.keywords_textbox = ctk.CTkTextbox(tab, height=72, font=(FONT_FAMILY_MAIN, 12), corner_radius=8)
+        self.keywords_textbox.pack(fill="x", pady=(0, 8))
+        self.keywords_textbox.insert("1.0", "Petrokimia Gresik\nPupuk Kaltim\nPupuk Indonesia")
+        self.keywords_textbox.bind("<KeyRelease>", self._update_keyword_count)
 
-        # Quick placeholder text
-        sample_prompt = "Petrokimia Gresik\nPupuk Kaltim\nPupuk Indonesia"
-        self.keyword_text.insert(tk.END, sample_prompt)
-        self.keyword_text.bind("<KeyRelease>", self._update_keyword_count)
+        # Bottom row inside Tab 1
+        sub_row = ctk.CTkFrame(tab, fg_color="transparent")
+        sub_row.pack(fill="x")
 
-        # Counter & limit options
-        footer_row = ttk.Frame(self.tab_search)
-        footer_row.pack(fill=tk.X, pady=(2, 0))
-
-        self.kw_count_label = ttk.Label(
-            footer_row,
-            text="📌 3 kata kunci terdeteksi",
-            font=(FONT_FAMILY_MAIN, 10, "bold"),
-            foreground="#4338ca",
+        self.kw_counter_label = ctk.CTkLabel(
+            sub_row,
+            text="3 kata kunci terdeteksi",
+            font=(FONT_FAMILY_MAIN, 11, "bold"),
+            text_color="#60a5fa",
         )
-        self.kw_count_label.pack(side=tk.LEFT)
+        self.kw_counter_label.pack(side="left")
 
-        btn_sample = ttk.Button(
-            footer_row,
+        btn_sample = ctk.CTkButton(
+            sub_row,
             text="Reset Contoh",
-            style="Secondary.TButton",
+            width=90,
+            height=26,
+            font=(FONT_FAMILY_MAIN, 10),
+            fg_color="#334155",
+            hover_color="#475569",
             command=self._reset_sample_keywords,
         )
-        btn_sample.pack(side=tk.LEFT, padx=(10, 0))
+        btn_sample.pack(side="left", padx=(12, 0))
 
-        limit_frame = ttk.Frame(footer_row)
-        limit_frame.pack(side=tk.RIGHT)
+        # Target documents per keyword
+        limit_box = ctk.CTkFrame(sub_row, fg_color="transparent")
+        limit_box.pack(side="right")
 
-        ttk.Label(limit_frame, text="Target Dokumen per Kata Kunci:").pack(side=tk.LEFT, padx=(0, 6))
-        limit_spin = ttk.Spinbox(
-            limit_frame,
-            from_=1,
-            to=100,
-            textvariable=self.limit_var,
-            width=6,
+        ctk.CTkLabel(
+            limit_box,
+            text="Target Dokumen per Kata Kunci:",
             font=(FONT_FAMILY_MAIN, 11),
+            text_color="#cbd5e1",
+        ).pack(side="left", padx=(0, 8))
+
+        self.entry_limit = ctk.CTkEntry(
+            limit_box,
+            textvariable=self.limit_var,
+            width=55,
+            height=28,
+            font=(FONT_FAMILY_MAIN, 12),
+            justify="center",
         )
-        limit_spin.pack(side=tk.LEFT)
+        self.entry_limit.pack(side="left")
 
-    def _build_tab_single(self):
-        desc_lbl = ttk.Label(
-            self.tab_single,
-            text="Masukkan satu tautan dokumen Scribd spesifik untuk diunduh langsung sebagai file PDF:",
-            style="AppSubtitle.TLabel",
+    def _build_single_tab(self, tab):
+        lbl = ctk.CTkLabel(
+            tab,
+            text="Tautan Dokumen Scribd Spesifik:",
+            font=(FONT_FAMILY_MAIN, 11),
+            text_color="#cbd5e1",
         )
-        desc_lbl.pack(anchor=tk.W, pady=(0, 8))
+        lbl.pack(anchor="w", pady=(0, 8))
 
-        row = ttk.Frame(self.tab_single)
-        row.pack(fill=tk.X, pady=4)
+        row = ctk.CTkFrame(tab, fg_color="transparent")
+        row.pack(fill="x", pady=(0, 8))
 
-        ttk.Label(row, text="Link URL:").pack(side=tk.LEFT, padx=(0, 8))
-        self.entry_single_url = ttk.Entry(row, textvariable=self.single_url_var, font=(FONT_FAMILY_MAIN, 11))
-        self.entry_single_url.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
-
-        btn_paste = ttk.Button(row, text="📋 Paste", style="Secondary.TButton", command=self._paste_single_url)
-        btn_paste.pack(side=tk.RIGHT)
-
-        hint = ttk.Label(
-            self.tab_single,
-            text="Contoh: https://www.scribd.com/document/320976464/Praktek-Kerja-Lapangan-PT-Pupuk-Kaltim",
-            style="Muted.TLabel",
+        self.entry_single_url = ctk.CTkEntry(
+            row,
+            textvariable=self.single_url_var,
+            placeholder_text="https://www.scribd.com/document/123456789/Judul-Dokumen",
+            font=(FONT_FAMILY_MAIN, 12),
+            height=34,
         )
-        hint.pack(anchor=tk.W, pady=(4, 0))
+        self.entry_single_url.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-    def _build_tab_file(self):
-        desc_lbl = ttk.Label(
-            self.tab_file,
-            text="Pilih file teks (.txt) yang berisi daftar link dokumen Scribd (satu baris per tautan):",
-            style="AppSubtitle.TLabel",
+        btn_paste = ctk.CTkButton(
+            row,
+            text="Tempel Tautan",
+            width=110,
+            height=34,
+            font=(FONT_FAMILY_MAIN, 11),
+            fg_color="#334155",
+            hover_color="#475569",
+            command=self._paste_single_url,
         )
-        desc_lbl.pack(anchor=tk.W, pady=(0, 8))
+        btn_paste.pack(side="right")
 
-        row = ttk.Frame(self.tab_file)
-        row.pack(fill=tk.X, pady=4)
+        hint = ctk.CTkLabel(
+            tab,
+            text="Sistem akan langsung membuka peramban latar belakang dan mengonversi seluruh halaman dokumen ke format PDF asli.",
+            font=(FONT_FAMILY_MAIN, 10),
+            text_color="#64748b",
+        )
+        hint.pack(anchor="w")
 
-        ttk.Label(row, text="File Path:").pack(side=tk.LEFT, padx=(0, 8))
-        entry_file = ttk.Entry(row, textvariable=self.file_path_var, font=(FONT_FAMILY_MAIN, 11))
-        entry_file.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
+    def _build_file_tab(self, tab):
+        lbl = ctk.CTkLabel(
+            tab,
+            text="Lokasi Berkas Teks Daftar URL (format satu link per baris):",
+            font=(FONT_FAMILY_MAIN, 11),
+            text_color="#cbd5e1",
+        )
+        lbl.pack(anchor="w", pady=(0, 8))
 
-        btn_browse = ttk.Button(row, text="Pilih File...", style="Secondary.TButton", command=self._browse_file)
-        btn_browse.pack(side=tk.RIGHT)
+        row = ctk.CTkFrame(tab, fg_color="transparent")
+        row.pack(fill="x", pady=(0, 8))
+
+        self.entry_file_path = ctk.CTkEntry(
+            row,
+            textvariable=self.file_path_var,
+            placeholder_text="Pilih berkas urls.txt...",
+            font=(FONT_FAMILY_MAIN, 12),
+            height=34,
+        )
+        self.entry_file_path.pack(side="left", fill="x", expand=True, padx=(0, 10))
+
+        btn_browse = ctk.CTkButton(
+            row,
+            text="Pilih Berkas...",
+            width=110,
+            height=34,
+            font=(FONT_FAMILY_MAIN, 11),
+            fg_color="#334155",
+            hover_color="#475569",
+            command=self._browse_file,
+        )
+        btn_browse.pack(side="right")
 
     def _build_settings_card(self, parent):
-        card = tk.Frame(parent, bg=self.COLOR_CARD, relief="solid", bd=1, padx=14, pady=12)
-        card.pack(fill=tk.X, pady=(0, 10))
+        card = ctk.CTkFrame(parent, corner_radius=10, fg_color="#1e293b", border_width=1, border_color="#334155")
+        card.pack(fill="x", pady=(0, 12), padx=2, ipady=4)
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=16, pady=12)
 
         # Row 1: Random Delay Range
-        delay_row = tk.Frame(card, bg=self.COLOR_CARD)
-        delay_row.pack(fill=tk.X, pady=(0, 8))
+        row1 = ctk.CTkFrame(inner, fg_color="transparent")
+        row1.pack(fill="x", pady=(0, 10))
 
-        lbl_delay = tk.Label(
-            delay_row,
-            text="⏱️ Jeda Acak (Random Delay):",
+        ctk.CTkLabel(
+            row1,
+            text="Rentang Jeda Acak (detik):",
             font=(FONT_FAMILY_MAIN, 11, "bold"),
-            bg=self.COLOR_CARD,
-            fg=self.COLOR_TEXT,
-        )
-        lbl_delay.pack(side=tk.LEFT, padx=(0, 10))
+            text_color="#f8fafc",
+        ).pack(side="left", padx=(0, 10))
 
-        spin_min = ttk.Spinbox(
-            delay_row,
-            from_=0.5,
-            to=60.0,
-            increment=0.5,
+        self.entry_min_delay = ctk.CTkEntry(
+            row1,
             textvariable=self.min_delay_var,
-            width=5,
+            width=48,
+            height=28,
+            justify="center",
             font=(FONT_FAMILY_MAIN, 11),
         )
-        spin_min.pack(side=tk.LEFT)
+        self.entry_min_delay.pack(side="left")
 
-        tk.Label(delay_row, text="detik  s/d", bg=self.COLOR_CARD, fg=self.COLOR_SUBTEXT).pack(side=tk.LEFT, padx=6)
+        ctk.CTkLabel(row1, text="s/d", font=(FONT_FAMILY_MAIN, 11), text_color="#94a3b8").pack(side="left", padx=8)
 
-        spin_max = ttk.Spinbox(
-            delay_row,
-            from_=1.0,
-            to=120.0,
-            increment=0.5,
+        self.entry_max_delay = ctk.CTkEntry(
+            row1,
             textvariable=self.max_delay_var,
-            width=5,
+            width=48,
+            height=28,
+            justify="center",
             font=(FONT_FAMILY_MAIN, 11),
         )
-        spin_max.pack(side=tk.LEFT)
+        self.entry_max_delay.pack(side="left")
 
-        tk.Label(delay_row, text="detik", bg=self.COLOR_CARD, fg=self.COLOR_SUBTEXT).pack(side=tk.LEFT, padx=(6, 12))
+        ctk.CTkLabel(row1, text="detik", font=(FONT_FAMILY_MAIN, 11), text_color="#94a3b8").pack(side="left", padx=(8, 14))
 
-        sub_delay = tk.Label(
-            delay_row,
-            text="(Jeda otomatis diacak antara 1000 - 5000 ms agar bebas blokir)",
+        ctk.CTkLabel(
+            row1,
+            text="Jeda diacak otomatis antara 1000 - 5000 ms antar dokumen untuk mencegah rate-limit",
             font=(FONT_FAMILY_MAIN, 10),
-            bg=self.COLOR_CARD,
-            fg=self.COLOR_SUBTEXT,
-        )
-        sub_delay.pack(side=tk.LEFT)
+            text_color="#64748b",
+        ).pack(side="left")
 
-        # Row 2: Storage Folder
-        folder_row = tk.Frame(card, bg=self.COLOR_CARD)
-        folder_row.pack(fill=tk.X)
+        # Row 2: Destination Folder
+        row2 = ctk.CTkFrame(inner, fg_color="transparent")
+        row2.pack(fill="x")
 
-        lbl_folder = tk.Label(
-            folder_row,
-            text="📁 Folder Simpan PDF:",
+        ctk.CTkLabel(
+            row2,
+            text="Direktori Simpan PDF:",
             font=(FONT_FAMILY_MAIN, 11, "bold"),
-            bg=self.COLOR_CARD,
-            fg=self.COLOR_TEXT,
+            text_color="#f8fafc",
+        ).pack(side="left", padx=(0, 10))
+
+        self.entry_folder = ctk.CTkEntry(
+            row2,
+            textvariable=self.output_dir_var,
+            placeholder_text="Kosongkan untuk otomatis menyimpan ke folder Downloads/Momo_Rescribd",
+            font=(FONT_FAMILY_MAIN, 11),
+            height=30,
         )
-        lbl_folder.pack(side=tk.LEFT, padx=(0, 10))
+        self.entry_folder.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
-        self.entry_folder = ttk.Entry(folder_row, textvariable=self.output_dir_var, font=(FONT_FAMILY_MAIN, 11))
-        self.entry_folder.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
-
-        btn_folder = ttk.Button(folder_row, text="Pilih Folder...", style="Secondary.TButton", command=self._browse_folder)
-        btn_folder.pack(side=tk.RIGHT)
-
-        hint_folder = tk.Label(
-            card,
-            text="💡 Kosongkan untuk otomatis menyimpan ke folder Downloads/Momo_Rescribd (aman & tidak mengekspos username)",
-            font=(FONT_FAMILY_MAIN, 10),
-            bg=self.COLOR_CARD,
-            fg=self.COLOR_SUBTEXT,
+        btn_folder = ctk.CTkButton(
+            row2,
+            text="Pilih Folder...",
+            width=110,
+            height=30,
+            font=(FONT_FAMILY_MAIN, 11),
+            fg_color="#334155",
+            hover_color="#475569",
+            command=self._browse_folder,
         )
-        hint_folder.pack(anchor=tk.W, pady=(4, 0))
+        btn_folder.pack(side="right")
 
     def _build_action_bar(self, parent):
-        action_card = ttk.Frame(parent)
-        action_card.pack(fill=tk.X, pady=(0, 10))
+        action_row = ctk.CTkFrame(parent, fg_color="transparent")
+        action_row.pack(fill="x", pady=(0, 12))
 
-        # Action Buttons
-        self.btn_start = tk.Button(
-            action_card,
-            text="🚀 Mulai Download",
+        # Start Button
+        self.btn_start = ctk.CTkButton(
+            action_row,
+            text="Mulai Unduh",
             font=(FONT_FAMILY_MAIN, 12, "bold"),
-            bg="#4f46e5",
-            fg="#ffffff",
-            activebackground="#4338ca",
-            activeforeground="#ffffff",
-            padx=18,
-            pady=8,
-            relief="flat",
-            cursor="hand2",
+            fg_color="#2563eb",
+            hover_color="#1d4ed8",
+            height=38,
+            width=150,
+            corner_radius=8,
             command=self._start_process,
         )
-        self.btn_start.pack(side=tk.LEFT, padx=(0, 8))
+        self.btn_start.pack(side="left", padx=(0, 10))
 
-        self.btn_stop = tk.Button(
-            action_card,
-            text="🛑 Berhenti (Stop)",
+        # Stop Button
+        self.btn_stop = ctk.CTkButton(
+            action_row,
+            text="Hentikan Proses",
             font=(FONT_FAMILY_MAIN, 12, "bold"),
-            bg="#ef4444",
-            fg="#ffffff",
-            activebackground="#dc2626",
-            activeforeground="#ffffff",
-            padx=16,
-            pady=8,
-            relief="flat",
-            state=tk.DISABLED,
-            cursor="hand2",
+            fg_color="#dc2626",
+            hover_color="#b91c1c",
+            height=38,
+            width=140,
+            corner_radius=8,
+            state="disabled",
             command=self._stop_process,
         )
-        self.btn_stop.pack(side=tk.LEFT, padx=(0, 10))
+        self.btn_stop.pack(side="left", padx=(0, 12))
 
-        self.btn_open_folder = tk.Button(
-            action_card,
-            text="📂 Buka Folder Hasil",
+        # Open Output Folder Button
+        self.btn_open_folder = ctk.CTkButton(
+            action_row,
+            text="Buka Folder Hasil",
             font=(FONT_FAMILY_MAIN, 11),
-            bg="#f1f5f9",
-            fg="#1e293b",
-            activebackground="#e2e8f0",
-            activeforeground="#0f172a",
-            padx=14,
-            pady=8,
-            relief="solid",
-            bd=1,
-            cursor="hand2",
+            fg_color="#1e293b",
+            hover_color="#334155",
+            border_width=1,
+            border_color="#475569",
+            height=38,
+            width=140,
+            corner_radius=8,
             command=self._open_output_folder,
         )
-        self.btn_open_folder.pack(side=tk.LEFT)
+        self.btn_open_folder.pack(side="left")
 
-        # Progress bar
-        self.progress = ttk.Progressbar(action_card, mode="indeterminate", length=180)
-        self.progress.pack(side=tk.RIGHT, padx=(10, 0))
+        # Progress Bar
+        self.progress_bar = ctk.CTkProgressBar(
+            action_row,
+            orientation="horizontal",
+            mode="indeterminate",
+            height=10,
+            width=180,
+            corner_radius=5,
+            progress_color="#3b82f6",
+        )
+        self.progress_bar.pack(side="right", padx=(10, 0))
+        self.progress_bar.set(0)
 
-    def _build_terminal_console(self, parent):
-        term_frame = tk.Frame(parent, bg="#0f172a", relief="solid", bd=1)
-        term_frame.pack(fill=tk.BOTH, expand=True)
+    def _build_console_card(self, parent):
+        console_frame = ctk.CTkFrame(
+            parent,
+            corner_radius=10,
+            fg_color="#0b0f19",
+            border_width=1,
+            border_color="#1e293b",
+        )
+        console_frame.pack(fill="both", expand=True)
 
-        # Terminal Header Bar
-        top_bar = tk.Frame(term_frame, bg="#1e293b", padx=10, pady=6)
-        top_bar.pack(fill=tk.X)
+        # Header Bar
+        top_bar = ctk.CTkFrame(console_frame, height=34, fg_color="#111827", corner_radius=0)
+        top_bar.pack(fill="x", padx=1, pady=1)
 
-        tk.Label(
+        ctk.CTkLabel(
             top_bar,
-            text="💻 Console Log & Status Progres",
-            font=(FONT_FAMILY_MAIN, 10, "bold"),
-            bg="#1e293b",
-            fg="#94a3b8",
-        ).pack(side=tk.LEFT)
+            text="Log Aktivitas & Status Konsol",
+            font=(FONT_FAMILY_MAIN, 11, "bold"),
+            text_color="#94a3b8",
+        ).pack(side="left", padx=12, pady=4)
 
-        btn_copy = tk.Button(
+        btn_copy = ctk.CTkButton(
             top_bar,
-            text="📋 Salin Log",
-            font=(FONT_FAMILY_MAIN, 9),
-            bg="#334155",
-            fg="#f8fafc",
-            activebackground="#475569",
-            activeforeground="#ffffff",
-            padx=8,
-            pady=2,
-            relief="flat",
+            text="Salin Log",
+            width=70,
+            height=24,
+            font=(FONT_FAMILY_MAIN, 10),
+            fg_color="#1f2937",
+            hover_color="#374151",
             command=self._copy_log,
         )
-        btn_copy.pack(side=tk.RIGHT, padx=(6, 0))
+        btn_copy.pack(side="right", padx=(6, 8), pady=4)
 
-        btn_clear = tk.Button(
+        btn_clear = ctk.CTkButton(
             top_bar,
-            text="🗑️ Bersihkan",
-            font=(FONT_FAMILY_MAIN, 9),
-            bg="#334155",
-            fg="#f8fafc",
-            activebackground="#475569",
-            activeforeground="#ffffff",
-            padx=8,
-            pady=2,
-            relief="flat",
+            text="Bersihkan",
+            width=70,
+            height=24,
+            font=(FONT_FAMILY_MAIN, 10),
+            fg_color="#1f2937",
+            hover_color="#374151",
             command=self._clear_log,
         )
-        btn_clear.pack(side=tk.RIGHT)
+        btn_clear.pack(side="right", pady=4)
 
-        # Scrolled Text Terminal
-        self.log_text = ScrolledText(
-            term_frame,
-            wrap=tk.WORD,
-            font=(FONT_FAMILY_MONO, 10),
-            background="#0f172a",
-            foreground="#f8fafc",
-            insertbackground="#38bdf8",
-            selectbackground="#334155",
-            padx=10,
-            pady=8,
-            relief="flat",
+        # Text Console Output
+        self.log_textbox = ctk.CTkTextbox(
+            console_frame,
+            font=(FONT_FAMILY_MONO, 11),
+            text_color="#e2e8f0",
+            fg_color="#0b0f19",
+            wrap="word",
+            corner_radius=8,
         )
-        self.log_text.pack(fill=tk.BOTH, expand=True)
+        self.log_textbox.pack(fill="both", expand=True, padx=8, pady=(4, 8))
+
+        # Welcome message
+        self.log_textbox.insert(
+            "end",
+            "Momo Rescribd siap digunakan.\n"
+            "Pilih mode pengunduhan di atas lalu klik 'Mulai Unduh'.\n\n"
+        )
 
     # ---------------------------------------------------------------------------
-    # UI State & Badge Management
+    # Event Handlers & Helpers
     # ---------------------------------------------------------------------------
-    def _set_ui_state(self, running, status_text="Siap", badge_type="ready"):
-        self.is_running = running
-
-        if running:
-            self.btn_start.config(state=tk.DISABLED, bg="#94a3b8")
-            self.btn_stop.config(state=tk.NORMAL, bg="#ef4444")
-            self.progress.start(10)
-        else:
-            self.btn_start.config(state=tk.NORMAL, bg="#4f46e5")
-            self.btn_stop.config(state=tk.DISABLED, bg="#94a3b8")
-            self.progress.stop()
-
-        # Update status badge
-        badge_colors = {
-            "ready": ("#ecfdf5", "#047857"),       # Emerald
-            "running": ("#fffbeb", "#b45309"),     # Amber
-            "stopped": ("#fef2f2", "#b91c1c"),     # Red
-            "success": ("#eff6ff", "#1d4ed8"),     # Blue
-        }
-        bg_col, fg_col = badge_colors.get(badge_type, ("#ecfdf5", "#047857"))
-        self.status_badge.config(text=f"● {status_text}", bg=bg_col, fg=fg_col)
-
     def _update_keyword_count(self, event=None):
-        raw = self.keyword_text.get("1.0", tk.END).strip()
+        raw = self.keywords_textbox.get("1.0", "end").strip()
         keywords = self._parse_keywords(raw)
         count = len(keywords)
         if count == 0:
-            self.kw_count_label.config(text="⚠️ Belum ada kata kunci", foreground="#dc2626")
+            self.kw_counter_label.configure(text="Belum ada kata kunci", text_color="#ef4444")
         elif count == 1:
-            self.kw_count_label.config(text="📌 1 kata kunci terdeteksi", foreground="#4338ca")
+            self.kw_counter_label.configure(text="1 kata kunci terdeteksi", text_color="#60a5fa")
         else:
-            self.kw_count_label.config(text=f"📌 {count} kata kunci terdeteksi", foreground="#4338ca")
+            self.kw_counter_label.configure(text=f"{count} kata kunci terdeteksi", text_color="#60a5fa")
 
     def _parse_keywords(self, raw_text):
         if not raw_text:
@@ -613,8 +545,8 @@ class MomoRescribdApp(tk.Tk):
         return [t.strip() for t in tokens if t.strip()]
 
     def _reset_sample_keywords(self):
-        self.keyword_text.delete("1.0", tk.END)
-        self.keyword_text.insert(tk.END, "Petrokimia Gresik\nPupuk Kaltim\nPupuk Indonesia")
+        self.keywords_textbox.delete("1.0", "end")
+        self.keywords_textbox.insert("1.0", "Petrokimia Gresik\nPupuk Kaltim\nPupuk Indonesia")
         self._update_keyword_count()
 
     def _paste_single_url(self):
@@ -626,7 +558,7 @@ class MomoRescribdApp(tk.Tk):
 
     def _browse_file(self):
         f = filedialog.askopenfilename(
-            title="Pilih File Teks Daftar URL",
+            title="Pilih Berkas Teks Daftar URL",
             filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
         )
         if f:
@@ -647,72 +579,109 @@ class MomoRescribdApp(tk.Tk):
         os.makedirs(path, exist_ok=True)
         return path
 
-    def _display_path(self, path):
-        return engine.display_path(path)
-
     def _open_output_folder(self):
         folder = self._get_effective_output_dir()
         if not engine.open_in_file_manager(folder):
-            messagebox.showinfo("Informasi", f"Folder belum ada atau gagal dibuka:\n{self._display_path(folder)}")
+            messagebox.showinfo("Informasi", f"Folder belum ada atau gagal dibuka:\n{engine.display_path(folder)}")
 
     def _clear_log(self):
-        self.log_text.delete("1.0", tk.END)
+        self.log_textbox.delete("1.0", "end")
 
     def _copy_log(self):
-        text = self.log_text.get("1.0", tk.END)
+        text = self.log_textbox.get("1.0", "end")
         self.clipboard_clear()
         self.clipboard_append(text)
-        messagebox.showinfo("Sukses", "Seluruh log berhasil disalin ke clipboard!")
+        messagebox.showinfo("Sukses", "Seluruh log berhasil disalin ke clipboard.")
 
     def _poll_log_queue(self):
         while not self.log_queue.empty():
             try:
                 msg = self.log_queue.get_nowait()
-                self.log_text.insert(tk.END, msg)
-                self.log_text.see(tk.END)
+                self.log_textbox.insert("end", msg)
+                self.log_textbox.see("end")
             except queue.Empty:
                 break
-        self.after(100, self._poll_log_queue)
+        self.after(50, self._poll_log_queue)
 
     def _log(self, text):
         self.log_queue.put(text + "\n")
 
+    def _set_ui_state(self, running, status_text="SIAP", badge_type="ready"):
+        self.is_running = running
+
+        if running:
+            self.btn_start.configure(state="disabled", fg_color="#475569")
+            self.btn_stop.configure(state="normal", fg_color="#dc2626")
+            self.progress_bar.start()
+        else:
+            self.btn_start.configure(state="normal", fg_color="#2563eb")
+            self.btn_stop.configure(state="disabled", fg_color="#475569")
+            self.progress_bar.stop()
+            self.progress_bar.set(0)
+
+        badge_configs = {
+            "ready": ("#10b981", "#064e3b"),       # Green text, dark green bg
+            "running": ("#f59e0b", "#78350f"),     # Amber text, dark amber bg
+            "stopped": ("#ef4444", "#7f1d1d"),     # Red text, dark red bg
+            "success": ("#38bdf8", "#0c4a6e"),     # Blue text, dark blue bg
+        }
+        fg_col, bg_col = badge_configs.get(badge_type, ("#10b981", "#064e3b"))
+        self.status_badge.configure(text=status_text, text_color=fg_col, fg_color=bg_col)
+
     # ---------------------------------------------------------------------------
-    # Action Execution & Stop Logic
+    # Start and Stop Process Handlers
     # ---------------------------------------------------------------------------
     def _stop_process(self):
-        """Signals background worker thread to abort immediately."""
         if not self.is_running:
             return
 
-        self._log("\n🛑 Mengirim sinyal berhenti... Menutup browser dan proses...")
+        self._log("\n[STOP] Mengirim sinyal berhenti... Menutup peramban dan membersihkan proses...")
         self.stop_event.set()
-        self.btn_stop.config(state=tk.DISABLED, text="🛑 Menghentikan...")
-        self.status_badge.config(text="● Menghentikan...", bg="#fef2f2", fg="#b91c1c")
+        self.btn_stop.configure(state="disabled", text="MENGHENTIKAN...")
+        self.status_badge.configure(text="MENGHENTIKAN...", text_color="#ef4444", fg_color="#7f1d1d")
 
     def _start_process(self):
         if self.is_running:
             return
 
-        current_tab = self.notebook.index(self.notebook.select())
+        active_tab_name = self.tabview.get()
         out_dir = self._get_effective_output_dir()
 
-        min_delay = max(0.5, float(self.min_delay_var.get()))
-        max_delay = max(min_delay, float(self.max_delay_var.get()))
+        # Parse Delays
+        try:
+            min_delay = max(0.5, float(self.min_delay_var.get().strip()))
+            max_delay = max(min_delay, float(self.max_delay_var.get().strip()))
+        except Exception:
+            min_delay = 1.0
+            max_delay = 5.0
+            self.min_delay_var.set("1.0")
+            self.max_delay_var.set("5.0")
 
         self.stop_event.clear()
 
-        # Tab 0: Multi-Keyword Search
-        if current_tab == 0:
-            raw_kw = self.keyword_text.get("1.0", tk.END).strip()
+        # Mode 1: Multi-Keyword Search
+        if active_tab_name == "Pencarian Kata Kunci":
+            raw_kw = self.keywords_textbox.get("1.0", "end").strip()
             keywords = self._parse_keywords(raw_kw)
             if not keywords:
                 messagebox.showwarning("Peringatan", "Silakan masukkan minimal satu kata kunci pencarian.")
                 return
 
-            limit = max(1, int(self.limit_var.get()))
-            self._set_ui_state(True, status_text="Mencari & Mengunduh...", badge_type="running")
-            self.btn_stop.config(text="🛑 Berhenti (Stop)")
+            try:
+                limit = max(1, int(self.limit_var.get().strip()))
+            except Exception:
+                limit = 5
+                self.limit_var.set("5")
+
+            self._set_ui_state(True, status_text="MEMPROSES", badge_type="running")
+            self.btn_stop.configure(text="Hentikan Proses")
+
+            self._log("=" * 60)
+            self._log(f"[INFO] Memulai proses pencarian {len(keywords)} kata kunci.")
+            self._log(f"[INFO] Target: {limit} dokumen per kata kunci.")
+            self._log(f"[INFO] Jeda acak: {min_delay:.1f}s - {max_delay:.1f}s ({int(min_delay*1000)} - {int(max_delay*1000)} ms).")
+            self._log(f"[INFO] Direktori simpan: {engine.display_path(out_dir)}")
+            self._log("=" * 60)
 
             self.worker_thread = threading.Thread(
                 target=self._run_multi_search_worker,
@@ -721,15 +690,20 @@ class MomoRescribdApp(tk.Tk):
             )
             self.worker_thread.start()
 
-        # Tab 1: Single URL
-        elif current_tab == 1:
+        # Mode 2: Single URL
+        elif active_tab_name == "Tautan Tunggal":
             url = self.single_url_var.get().strip()
             if not url:
-                messagebox.showwarning("Peringatan", "Silakan masukkan link dokumen Scribd.")
+                messagebox.showwarning("Peringatan", "Silakan masukkan tautan dokumen Scribd.")
                 return
 
-            self._set_ui_state(True, status_text="Mengunduh Dokumen...", badge_type="running")
-            self.btn_stop.config(text="🛑 Berhenti (Stop)")
+            self._set_ui_state(True, status_text="MENGUNDUH", badge_type="running")
+            self.btn_stop.configure(text="Hentikan Proses")
+
+            self._log("=" * 60)
+            self._log(f"[INFO] Mengunduh dokumen dari URL: {url}")
+            self._log(f"[INFO] Direktori simpan: {engine.display_path(out_dir)}")
+            self._log("=" * 60)
 
             self.worker_thread = threading.Thread(
                 target=self._run_single_worker,
@@ -738,15 +712,20 @@ class MomoRescribdApp(tk.Tk):
             )
             self.worker_thread.start()
 
-        # Tab 2: File of URLs
-        elif current_tab == 2:
+        # Mode 3: Batch URL File
+        elif active_tab_name == "Berkas Daftar URL":
             filepath = self.file_path_var.get().strip()
             if not filepath or not os.path.exists(filepath):
-                messagebox.showwarning("Peringatan", f"File daftar URL tidak ditemukan:\n{filepath}")
+                messagebox.showwarning("Peringatan", f"Berkas daftar URL tidak ditemukan:\n{filepath}")
                 return
 
-            self._set_ui_state(True, status_text="Memproses File URL...", badge_type="running")
-            self.btn_stop.config(text="🛑 Berhenti (Stop)")
+            self._set_ui_state(True, status_text="MEMPROSES", badge_type="running")
+            self.btn_stop.configure(text="Hentikan Proses")
+
+            self._log("=" * 60)
+            self._log(f"[INFO] Membaca berkas tautan: {engine.display_path(filepath)}")
+            self._log(f"[INFO] Direktori simpan: {engine.display_path(out_dir)}")
+            self._log("=" * 60)
 
             self.worker_thread = threading.Thread(
                 target=self._run_file_worker,
@@ -756,7 +735,7 @@ class MomoRescribdApp(tk.Tk):
             self.worker_thread.start()
 
     # ---------------------------------------------------------------------------
-    # Worker Threads
+    # Background Workers
     # ---------------------------------------------------------------------------
     def _run_multi_search_worker(self, keywords, limit, out_dir, min_delay, max_delay):
         old_stdout, old_stderr = sys.stdout, sys.stderr
@@ -778,10 +757,10 @@ class MomoRescribdApp(tk.Tk):
                 self._open_output_folder()
 
         except Exception as exc:
-            self._log(f"\n❌ Terjadi kesalahan: {exc}")
+            self._log(f"\n[ERROR] Terjadi kesalahan: {exc}")
         finally:
             sys.stdout, sys.stderr = old_stdout, old_stderr
-            status_text = "Dihentikan" if was_stopped or self.stop_event.is_set() else "Selesai"
+            status_text = "DIHENTIKAN" if was_stopped or self.stop_event.is_set() else "SELESAI"
             badge = "stopped" if was_stopped or self.stop_event.is_set() else "success"
             self.after(0, lambda: self._set_ui_state(False, status_text=status_text, badge_type=badge))
 
@@ -792,11 +771,6 @@ class MomoRescribdApp(tk.Tk):
 
         was_stopped = False
         try:
-            self._log("=" * 60)
-            self._log(f"🔗 Mengunduh satu dokumen dari URL: {url}")
-            self._log(f"📁 Folder penyimpanan: {self._display_path(out_dir)}")
-            self._log("=" * 60)
-
             saved_path, was_skipped = engine.download_scribd_document(
                 url,
                 output_dir=out_dir,
@@ -804,19 +778,19 @@ class MomoRescribdApp(tk.Tk):
                 stop_event=self.stop_event,
             )
             if was_skipped:
-                self._log(f"\nℹ️ Dokumen sudah pernah diunduh sebelumnya: {self._display_path(saved_path)}")
+                self._log(f"\n[INFO] Dokumen sudah pernah diunduh sebelumnya: {engine.display_path(saved_path)}")
             else:
-                self._log(f"\n🎉 Dokumen berhasil disimpan: {self._display_path(saved_path)}")
+                self._log(f"\n[SUKSES] Dokumen berhasil disimpan: {engine.display_path(saved_path)}")
             self._open_output_folder()
 
         except KeyboardInterrupt:
             was_stopped = True
-            self._log("\n🛑 Pengunduhan dokumen dihentikan oleh pengguna.")
+            self._log("\n[STOP] Pengunduhan dokumen dihentikan oleh pengguna.")
         except Exception as exc:
-            self._log(f"\n❌ Gagal mengunduh dokumen: {exc}")
+            self._log(f"\n[ERROR] Gagal mengunduh dokumen: {exc}")
         finally:
             sys.stdout, sys.stderr = old_stdout, old_stderr
-            status_text = "Dihentikan" if was_stopped or self.stop_event.is_set() else "Selesai"
+            status_text = "DIHENTIKAN" if was_stopped or self.stop_event.is_set() else "SELESAI"
             badge = "stopped" if was_stopped or self.stop_event.is_set() else "success"
             self.after(0, lambda: self._set_ui_state(False, status_text=status_text, badge_type=badge))
 
@@ -825,15 +799,9 @@ class MomoRescribdApp(tk.Tk):
         writer = QueueWriter(self.log_queue)
         sys.stdout, sys.stderr = writer, writer
 
-        was_stopped = False
         try:
-            self._log("=" * 60)
-            self._log(f"📄 Membaca daftar URL dari file: {self._display_path(filepath)}")
-            self._log(f"📁 Folder penyimpanan: {self._display_path(out_dir)}")
-            self._log("=" * 60)
-
             urls = engine.load_urls_from_file(filepath)
-            self._log(f"Berhasil membaca {len(urls)} tautan dari file.")
+            self._log(f"[INFO] Berhasil membaca {len(urls)} tautan dari berkas.")
 
             stats = engine.bulk_download_documents(
                 urls,
@@ -845,16 +813,16 @@ class MomoRescribdApp(tk.Tk):
             self._open_output_folder()
 
         except Exception as exc:
-            self._log(f"\n❌ Gagal memproses file: {exc}")
+            self._log(f"\n[ERROR] Gagal memproses berkas: {exc}")
         finally:
             sys.stdout, sys.stderr = old_stdout, old_stderr
-            status_text = "Dihentikan" if self.stop_event.is_set() else "Selesai"
+            status_text = "DIHENTIKAN" if self.stop_event.is_set() else "SELESAI"
             badge = "stopped" if self.stop_event.is_set() else "success"
             self.after(0, lambda: self._set_ui_state(False, status_text=status_text, badge_type=badge))
 
 
 # ---------------------------------------------------------------------------
-# Entry Point
+# Program Entry Point
 # ---------------------------------------------------------------------------
 def main():
     app = MomoRescribdApp()
