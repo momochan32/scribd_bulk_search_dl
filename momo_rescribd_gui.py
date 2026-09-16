@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 Momo Rescribd — Desktop Interface for Scribd Bulk Search & Document Downloader.
-Supports true parallel multi-keyword execution, dedicated per-keyword console tabs,
-custom destination folders per keyword, and random delay range protection.
+True parallel multi-keyword execution, dedicated per-keyword console tabs,
+custom destination folders per keyword, live per-card progress bars,
+and robust macOS trackpad click handling.
 Cross-platform: macOS, Windows, and Linux.
 """
 
@@ -33,6 +34,49 @@ FONT_FAMILY_MONO = "Consolas" if IS_WINDOWS else ("Menlo" if IS_MAC else "Monosp
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
+
+
+# ---------------------------------------------------------------------------
+# macOS Trackpad / Mouse Click Responsiveness Patch
+# ---------------------------------------------------------------------------
+# In CustomTkinter on macOS, trackpad micro-movements often trigger <Leave>
+# between button press and release, setting _mouse_inside = False and dropping
+# the click. This monkey patch ensures clicks are NEVER dropped when the user
+# releases the mouse within the button's boundary.
+_orig_ctk_button_on_release = ctk.CTkButton._on_release
+_orig_ctk_button_create_bindings = ctk.CTkButton._create_bindings
+
+
+def _patched_ctk_button_create_bindings(self, sequence=None):
+    _orig_ctk_button_create_bindings(self, sequence)
+    # Bind ButtonPress-1 to guarantee immediate active/inside state
+    def _on_press(event=None):
+        if self._state not in ("disabled", tk.DISABLED):
+            self._mouse_inside = True
+
+    self._canvas.bind("<Button-1>", _on_press, add=True)
+    if self._text_label is not None:
+        self._text_label.bind("<Button-1>", _on_press, add=True)
+    if self._image_label is not None:
+        self._image_label.bind("<Button-1>", _on_press, add=True)
+
+
+def _patched_ctk_button_on_release(self, event=None):
+    if self._state not in ("disabled", tk.DISABLED):
+        is_inside = True
+        if event and hasattr(event, "x") and hasattr(event, "y"):
+            w = self.winfo_width()
+            h = self.winfo_height()
+            # Allow generous 20px hit-test margin for trackpad micro-movements
+            if not (-20 <= event.x <= w + 20 and -20 <= event.y <= h + 20):
+                is_inside = False
+        if is_inside:
+            self._mouse_inside = True
+    return _orig_ctk_button_on_release(self, event)
+
+
+ctk.CTkButton._create_bindings = _patched_ctk_button_create_bindings
+ctk.CTkButton._on_release = _patched_ctk_button_on_release
 
 
 # ---------------------------------------------------------------------------
@@ -89,13 +133,13 @@ class ThreadRoutedStdout:
 class KeywordTask:
     """Represents a single keyword task card and its associated background worker."""
 
-    def __init__(self, task_id, keyword, limit=5, folder=""):
+    def __init__(self, task_id, keyword, limit=10, folder=""):
         self.task_id = task_id
         self.keyword_var = tk.StringVar(value=keyword)
         self.limit_var = tk.StringVar(value=str(limit))
         self.folder_var = tk.StringVar(value=folder)
         self.status_var = tk.StringVar(value="SIAP")
-        self.status_type = "ready"  # ready, running, success, stopped, error
+        self.status_type = "ready"  # ready, searching, downloading, success, stopped, error
 
         # Concurrency primitives
         self.thread = None
@@ -105,6 +149,9 @@ class KeywordTask:
         # UI Element References
         self.card_frame = None
         self.badge_label = None
+        self.progress_bar = None
+        self.progress_label = None
+        self.btn_start = None
         self.btn_stop = None
         self.btn_remove = None
         self.tab_name = None
@@ -119,8 +166,8 @@ class MomoRescribdApp(ctk.CTk):
         super().__init__()
 
         self.title("Momo Rescribd — Scribd Bulk Search & Document Downloader")
-        self.geometry("1000x880")
-        self.minsize(840, 720)
+        self.geometry("1020x900")
+        self.minsize(860, 740)
 
         # Set App Icon
         self._set_app_icon()
@@ -152,6 +199,9 @@ class MomoRescribdApp(ctk.CTk):
         # Console Tab Tracking
         self.active_console_tabs = {}  # tab_name -> CTkTextbox
 
+        # Click-through helper: ensure window takes key focus on first click
+        self.bind("<Button-1>", lambda e: self.focus_set(), add=True)
+
         self._build_ui()
         self._seed_sample_tasks()
         self._poll_log_queues()
@@ -171,7 +221,7 @@ class MomoRescribdApp(ctk.CTk):
     # ---------------------------------------------------------------------------
     def _build_ui(self):
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_container.pack(fill="both", expand=True, padx=20, pady=16)
+        self.main_container.pack(fill="both", expand=True, padx=18, pady=14)
 
         # 1. Header Area with Astronaut Mascot Logo
         self._build_header(self.main_container)
@@ -190,7 +240,7 @@ class MomoRescribdApp(ctk.CTk):
 
     def _build_header(self, parent):
         header_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        header_frame.pack(fill="x", pady=(0, 12))
+        header_frame.pack(fill="x", pady=(0, 10))
 
         # Left Box: Logo & Titles
         left_box = ctk.CTkFrame(header_frame, fg_color="transparent")
@@ -201,9 +251,9 @@ class MomoRescribdApp(ctk.CTk):
         if os.path.exists(logo_path):
             try:
                 pil_logo = Image.open(logo_path)
-                self.logo_image = ctk.CTkImage(light_image=pil_logo, dark_image=pil_logo, size=(56, 56))
+                self.logo_image = ctk.CTkImage(light_image=pil_logo, dark_image=pil_logo, size=(54, 54))
                 logo_label = ctk.CTkLabel(left_box, image=self.logo_image, text="")
-                logo_label.pack(side="left", padx=(0, 14))
+                logo_label.pack(side="left", padx=(0, 12))
             except Exception:
                 pass
 
@@ -220,7 +270,7 @@ class MomoRescribdApp(ctk.CTk):
 
         app_subtitle = ctk.CTkLabel(
             titles_box,
-            text="Scribd Bulk Search & Document Downloader (Konkurensi Paralel)",
+            text="Scribd Bulk Search & Downloader — Eksekusi Bersamaan (Paralel)",
             font=(FONT_FAMILY_MAIN, 12),
             text_color="#94a3b8",
         )
@@ -243,7 +293,7 @@ class MomoRescribdApp(ctk.CTk):
         self.global_status_badge.pack(anchor="e", pady=(4, 0))
 
     def _build_tabs(self, parent):
-        self.tabview = ctk.CTkTabview(parent, height=270, corner_radius=10)
+        self.tabview = ctk.CTkTabview(parent, height=290, corner_radius=10)
         self.tabview.pack(fill="x", pady=(0, 10))
 
         # Tab 1: Parallel Keyword Tasks
@@ -261,7 +311,7 @@ class MomoRescribdApp(ctk.CTk):
     def _build_search_tab(self, tab):
         # Top Controls Bar
         ctrl_bar = ctk.CTkFrame(tab, fg_color="transparent")
-        ctrl_bar.pack(fill="x", pady=(0, 8))
+        ctrl_bar.pack(fill="x", pady=(0, 6))
 
         btn_add = ctk.CTkButton(
             ctrl_bar,
@@ -322,7 +372,7 @@ class MomoRescribdApp(ctk.CTk):
         # Scrollable Task Cards Container
         self.tasks_scroll = ctk.CTkScrollableFrame(
             tab,
-            height=165,
+            height=190,
             corner_radius=8,
             fg_color="#0f172a",
             border_width=1,
@@ -474,12 +524,11 @@ class MomoRescribdApp(ctk.CTk):
 
     def _build_settings_card(self, parent):
         card = ctk.CTkFrame(parent, corner_radius=10, fg_color="#1e293b", border_width=1, border_color="#334155")
-        card.pack(fill="x", pady=(0, 10), padx=2, ipady=4)
+        card.pack(fill="x", pady=(0, 8), padx=2, ipady=3)
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="x", padx=14, pady=10)
+        inner.pack(fill="x", padx=14, pady=8)
 
-        # Row 1: Delay and Base Folder
         row = ctk.CTkFrame(inner, fg_color="transparent")
         row.pack(fill="x")
 
@@ -518,7 +567,7 @@ class MomoRescribdApp(ctk.CTk):
             text="(1000 - 5000 ms perlindungan rate-limit)",
             font=(FONT_FAMILY_MAIN, 10),
             text_color="#64748b",
-        ).pack(side="left", padx=(8, 20))
+        ).pack(side="left", padx=(8, 16))
 
         # Base Output Folder
         ctk.CTkLabel(
@@ -550,9 +599,9 @@ class MomoRescribdApp(ctk.CTk):
 
     def _build_action_bar(self, parent):
         action_row = ctk.CTkFrame(parent, fg_color="transparent")
-        action_row.pack(fill="x", pady=(0, 10))
+        action_row.pack(fill="x", pady=(0, 8))
 
-        # Start All Button
+        # Start All Button (Big Prominent)
         self.btn_start_all = ctk.CTkButton(
             action_row,
             text="Mulai Semua Bersamaan",
@@ -560,7 +609,7 @@ class MomoRescribdApp(ctk.CTk):
             fg_color="#2563eb",
             hover_color="#1d4ed8",
             height=38,
-            width=180,
+            width=200,
             corner_radius=8,
             command=self._start_all_processes,
         )
@@ -676,12 +725,12 @@ class MomoRescribdApp(ctk.CTk):
         self.console_tabview.pack(fill="both", expand=True, padx=6, pady=(0, 6))
 
     # ---------------------------------------------------------------------------
-    # Task Management & Dynamic UI Cards
+    # Task Management & Dynamic UI Cards with Live Progress
     # ---------------------------------------------------------------------------
     def _seed_sample_tasks(self):
         sample_kws = ["Petrokimia Gresik", "Pupuk Kaltim", "Pupuk Indonesia"]
         for kw in sample_kws:
-            self._create_task(kw, limit=5)
+            self._create_task(kw, limit=10)
         self._sync_task_summary()
 
     def _reset_sample_tasks(self):
@@ -701,10 +750,10 @@ class MomoRescribdApp(ctk.CTk):
 
     def _add_empty_task(self):
         idx = len(self.tasks) + 1
-        self._create_task(f"Kata Kunci {idx}", limit=5)
+        self._create_task(f"Kata Kunci {idx}", limit=10)
         self._sync_task_summary()
 
-    def _create_task(self, keyword, limit=5, folder=""):
+    def _create_task(self, keyword, limit=10, folder=""):
         self.task_counter += 1
         task_id = f"task_{self.task_counter}"
 
@@ -715,7 +764,7 @@ class MomoRescribdApp(ctk.CTk):
 
         task = KeywordTask(task_id, keyword, limit, folder)
 
-        # Build Card Widget in tasks_scroll
+        # Build Rich Card Widget in tasks_scroll
         card = ctk.CTkFrame(
             self.tasks_scroll,
             corner_radius=8,
@@ -726,9 +775,9 @@ class MomoRescribdApp(ctk.CTk):
         card.pack(fill="x", pady=4, padx=2)
         task.card_frame = card
 
-        # Row 1: Keyword, Target, Status Badge, Stop & Remove Buttons
+        # Line 1: Keyword, Target, Status Badge, Individual Start / Stop / Remove Buttons
         row1 = ctk.CTkFrame(card, fg_color="transparent")
-        row1.pack(fill="x", padx=10, pady=(8, 4))
+        row1.pack(fill="x", padx=10, pady=(6, 2))
 
         lbl_idx = ctk.CTkLabel(
             row1,
@@ -745,7 +794,7 @@ class MomoRescribdApp(ctk.CTk):
             placeholder_text="Masukkan kata kunci...",
             font=(FONT_FAMILY_MAIN, 12, "bold"),
             height=28,
-            width=240,
+            width=220,
         )
         entry_kw.pack(side="left", padx=(0, 10))
         entry_kw.bind("<KeyRelease>", lambda e, t=task: self._on_task_keyword_change(t))
@@ -772,7 +821,7 @@ class MomoRescribdApp(ctk.CTk):
             text="dokumen",
             font=(FONT_FAMILY_MAIN, 11),
             text_color="#94a3b8",
-        ).pack(side="left", padx=(0, 12))
+        ).pack(side="left", padx=(0, 10))
 
         # Status Badge
         badge = ctk.CTkLabel(
@@ -788,7 +837,7 @@ class MomoRescribdApp(ctk.CTk):
         badge.pack(side="left", padx=(0, 8))
         task.badge_label = badge
 
-        # Remove Task Button
+        # Action Buttons on Right: Remove, Stop, Start
         btn_del = ctk.CTkButton(
             row1,
             text="Hapus",
@@ -802,7 +851,6 @@ class MomoRescribdApp(ctk.CTk):
         btn_del.pack(side="right")
         task.btn_remove = btn_del
 
-        # Stop Task Button
         btn_stop = ctk.CTkButton(
             row1,
             text="Hentikan",
@@ -817,9 +865,47 @@ class MomoRescribdApp(ctk.CTk):
         btn_stop.pack(side="right", padx=(0, 6))
         task.btn_stop = btn_stop
 
-        # Row 2: Destination Folder & Browse Button
+        btn_start_single = ctk.CTkButton(
+            row1,
+            text="Mulai",
+            width=60,
+            height=26,
+            font=(FONT_FAMILY_MAIN, 10, "bold"),
+            fg_color="#2563eb",
+            hover_color="#1d4ed8",
+            command=lambda t=task: self._start_single_task(t),
+        )
+        btn_start_single.pack(side="right", padx=(0, 6))
+        task.btn_start = btn_start_single
+
+        # Line 2: Live Progress Bar & Status Text for this Keyword
+        row_prog = ctk.CTkFrame(card, fg_color="transparent")
+        row_prog.pack(fill="x", padx=10, pady=(2, 4))
+
+        prog_bar = ctk.CTkProgressBar(
+            row_prog,
+            height=8,
+            corner_radius=4,
+            progress_color="#3b82f6",
+        )
+        prog_bar.pack(side="left", fill="x", expand=True, padx=(34, 10))
+        prog_bar.set(0)
+        task.progress_bar = prog_bar
+
+        lbl_prog = ctk.CTkLabel(
+            row_prog,
+            text="Menunggu...",
+            font=(FONT_FAMILY_MAIN, 10),
+            text_color="#94a3b8",
+            width=180,
+            anchor="w",
+        )
+        lbl_prog.pack(side="right")
+        task.progress_label = lbl_prog
+
+        # Line 3: Destination Folder & Browse Button
         row2 = ctk.CTkFrame(card, fg_color="transparent")
-        row2.pack(fill="x", padx=10, pady=(0, 8))
+        row2.pack(fill="x", padx=10, pady=(0, 6))
 
         ctk.CTkLabel(
             row2,
@@ -908,7 +994,7 @@ class MomoRescribdApp(ctk.CTk):
             self.lbl_task_summary.configure(text="Belum ada tugas", text_color="#ef4444")
         elif running > 0:
             self.lbl_task_summary.configure(
-                text=f"{running} Berjalan, {total - running} Selesai/Siap",
+                text=f"{running} Berjalan Bersamaan, {total - running} Siap/Selesai",
                 text_color="#f59e0b",
             )
         else:
@@ -919,14 +1005,11 @@ class MomoRescribdApp(ctk.CTk):
 
     def _ensure_console_tab_for_task(self, task):
         kw = task.keyword_var.get().strip() or f"Tugas {task.task_id}"
-        # Truncate tab title cleanly
         clean_name = kw[:24].strip()
 
-        # If tab exists and name didn't change, return
         if task.tab_name == clean_name and clean_name in self.active_console_tabs:
             return
 
-        # If had an old tab name, delete it
         if task.tab_name and task.tab_name != clean_name and task.tab_name in self.active_console_tabs:
             try:
                 self.console_tabview.delete(task.tab_name)
@@ -934,12 +1017,10 @@ class MomoRescribdApp(ctk.CTk):
                 pass
             self.active_console_tabs.pop(task.tab_name, None)
 
-        # Create new tab if not present
         if clean_name not in self.active_console_tabs:
             try:
                 tab_frame = self.console_tabview.add(clean_name)
             except Exception:
-                # Tab with this name already exists in widget
                 clean_name = f"{clean_name} ({task.task_id})"
                 try:
                     tab_frame = self.console_tabview.add(clean_name)
@@ -994,7 +1075,7 @@ class MomoRescribdApp(ctk.CTk):
             lines = [line.strip() for line in raw.split("\n") if line.strip()]
             if lines:
                 for line in lines:
-                    self._create_task(line, limit=5)
+                    self._create_task(line, limit=10)
                 self._sync_task_summary()
             dialog.destroy()
 
@@ -1027,14 +1108,16 @@ class MomoRescribdApp(ctk.CTk):
         return p
 
     def _browse_base_folder(self):
+        self.update_idletasks()
         cur = self._get_base_folder()
-        d = filedialog.askdirectory(title="Pilih Folder Penyimpanan Utama", initialdir=cur)
+        d = filedialog.askdirectory(parent=self, title="Pilih Folder Penyimpanan Utama", initialdir=cur)
         if d:
             self.base_folder_var.set(d)
 
     def _browse_custom_folder(self, string_var):
+        self.update_idletasks()
         cur = string_var.get().strip() or self._get_base_folder()
-        d = filedialog.askdirectory(title="Pilih Folder Simpan Dokumen", initialdir=cur)
+        d = filedialog.askdirectory(parent=self, title="Pilih Folder Simpan Dokumen", initialdir=cur)
         if d:
             string_var.set(d)
 
@@ -1052,7 +1135,9 @@ class MomoRescribdApp(ctk.CTk):
             messagebox.showinfo("Informasi", f"Folder belum ada atau gagal dibuka:\n{engine.display_path(base)}")
 
     def _browse_file(self):
+        self.update_idletasks()
         f = filedialog.askopenfilename(
+            parent=self,
             title="Pilih Berkas Teks Daftar URL",
             filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
         )
@@ -1092,7 +1177,6 @@ class MomoRescribdApp(ctk.CTk):
 
     def _open_active_tab_folder(self):
         tab_name = self._get_active_tab_name()
-        # Look for matching task
         for t in self.tasks:
             if t.tab_name == tab_name:
                 self._open_task_folder(t)
@@ -1145,7 +1229,7 @@ class MomoRescribdApp(ctk.CTk):
             active_count = sum(1 for t in self.tasks if t.thread and t.thread.is_alive())
             if active_count > 0:
                 self.global_status_badge.configure(
-                    text=f"{active_count} BERJALAN",
+                    text=f"{active_count} BERJALAN BERSAMAAN",
                     text_color="#f59e0b",
                     fg_color="#78350f",
                 )
@@ -1161,7 +1245,6 @@ class MomoRescribdApp(ctk.CTk):
             self.progress_bar.stop()
             self.progress_bar.set(0)
 
-            # Check if any task was stopped or error
             any_stopped = any(t.status_type == "stopped" for t in self.tasks)
             all_done = bool(self.tasks) and all(t.status_type in ("success", "stopped") for t in self.tasks)
 
@@ -1185,14 +1268,15 @@ class MomoRescribdApp(ctk.CTk):
                 )
 
         self._sync_task_summary()
+        self.update_idletasks()
 
-    def _set_task_status(self, task, text, badge_type="ready"):
+    def _set_task_status(self, task, text, badge_type="ready", progress_val=None, progress_info=None):
         task.status_var.set(text)
         task.status_type = badge_type
 
         badge_configs = {
             "ready": ("#10b981", "#064e3b"),
-            "running": ("#f59e0b", "#78350f"),
+            "searching": ("#f59e0b", "#78350f"),
             "downloading": ("#38bdf8", "#0c4a6e"),
             "stopped": ("#ef4444", "#7f1d1d"),
             "success": ("#34d399", "#065f46"),
@@ -1202,16 +1286,93 @@ class MomoRescribdApp(ctk.CTk):
         if task.badge_label:
             task.badge_label.configure(text=text, text_color=fg_col, fg_color=bg_col)
 
-        if badge_type in ("running", "downloading"):
+        if task.progress_bar:
+            if progress_val is not None:
+                task.progress_bar.set(progress_val)
+            elif badge_type == "searching":
+                task.progress_bar.configure(mode="indeterminate")
+                task.progress_bar.start()
+            elif badge_type == "success":
+                task.progress_bar.stop()
+                task.progress_bar.configure(mode="determinate")
+                task.progress_bar.set(1.0)
+            elif badge_type in ("stopped", "error", "ready"):
+                task.progress_bar.stop()
+                task.progress_bar.configure(mode="determinate")
+                if badge_type == "ready":
+                    task.progress_bar.set(0)
+
+        if task.progress_label and progress_info:
+            task.progress_label.configure(text=progress_info)
+
+        if badge_type in ("searching", "downloading"):
+            if task.btn_start:
+                task.btn_start.configure(state="disabled", fg_color="#475569")
             if task.btn_stop:
                 task.btn_stop.configure(state="normal", fg_color="#dc2626")
             if task.btn_remove:
                 task.btn_remove.configure(state="disabled")
         else:
+            if task.btn_start:
+                task.btn_start.configure(state="normal", fg_color="#2563eb")
             if task.btn_stop:
                 task.btn_stop.configure(state="disabled", fg_color="#475569")
             if task.btn_remove:
                 task.btn_remove.configure(state="normal")
+
+        self.update_idletasks()
+
+    def _start_single_task(self, task):
+        """Starts an individual keyword task."""
+        if task.thread and task.thread.is_alive():
+            return
+
+        kw = task.keyword_var.get().strip()
+        if not kw:
+            messagebox.showwarning("Peringatan", "Kata kunci tidak boleh kosong.")
+            return
+
+        try:
+            min_delay = max(0.5, float(self.min_delay_var.get().strip()))
+            max_delay = max(min_delay, float(self.max_delay_var.get().strip()))
+        except Exception:
+            min_delay = 1.0
+            max_delay = 5.0
+
+        try:
+            limit = max(1, int(task.limit_var.get().strip()))
+        except Exception:
+            limit = 10
+            task.limit_var.set("10")
+
+        out_dir = task.folder_var.get().strip()
+        if not out_dir:
+            clean_slug = re.sub(r"[^\w\-]", "_", kw).strip("_")
+            out_dir = os.path.join(self._get_base_folder(), clean_slug)
+            task.folder_var.set(out_dir)
+
+        self._ensure_console_tab_for_task(task)
+        task.stop_event.clear()
+        if task.btn_stop:
+            task.btn_stop.configure(text="Hentikan")
+
+        self._set_task_status(task, "MENCARI...", badge_type="searching", progress_info="Sedang mencari dokumen di Scribd...")
+
+        t = threading.Thread(
+            target=self._parallel_keyword_worker,
+            args=(task, limit, out_dir, min_delay, max_delay),
+            daemon=True,
+        )
+        task.thread = t
+        t.start()
+
+        if task.tab_name:
+            try:
+                self.console_tabview.set(task.tab_name)
+            except Exception:
+                pass
+
+        self._update_global_ui_state()
 
     def _stop_single_task(self, task):
         if task.thread and task.thread.is_alive():
@@ -1219,10 +1380,9 @@ class MomoRescribdApp(ctk.CTk):
             task.log_queue.put("\n[STOP] Sinyal henti dikirim untuk tugas ini...\n")
             if task.btn_stop:
                 task.btn_stop.configure(state="disabled", text="MENGHENTIKAN")
-            self._set_task_status(task, "MENGHENTIKAN", badge_type="stopped")
+            self._set_task_status(task, "MENGHENTIKAN", badge_type="stopped", progress_info="Menghentikan proses...")
 
     def _stop_all_processes(self):
-        # Stop all keyword tasks
         for task in self.tasks:
             if task.thread and task.thread.is_alive():
                 task.stop_event.set()
@@ -1230,14 +1390,16 @@ class MomoRescribdApp(ctk.CTk):
                 if task.btn_stop:
                     task.btn_stop.configure(state="disabled")
 
-        # Stop solo thread if active
         if self.solo_thread and self.solo_thread.is_alive():
             self.solo_stop_event.set()
             self.solo_queue.put("\n[STOP] Sinyal henti dikirim...\n")
 
         self.btn_stop_all.configure(state="disabled", text="MENGHENTIKAN...")
+        self.update_idletasks()
 
     def _start_all_processes(self):
+        """Starts ALL valid keyword tasks simultaneously in parallel threads."""
+        self.update_idletasks()
         if self._any_task_running():
             return
 
@@ -1269,28 +1431,31 @@ class MomoRescribdApp(ctk.CTk):
                 messagebox.showwarning("Peringatan", "Semua baris kata kunci masih kosong.")
                 return
 
-            # Launch all tasks simultaneously in separate threads
+            # Launch all tasks simultaneously in separate threads at t=0
             for task in valid_tasks:
                 self._ensure_console_tab_for_task(task)
                 task.stop_event.clear()
                 if task.btn_stop:
                     task.btn_stop.configure(text="Hentikan")
 
-                # Parse task limit
                 try:
                     limit = max(1, int(task.limit_var.get().strip()))
                 except Exception:
-                    limit = 5
-                    task.limit_var.set("5")
+                    limit = 10
+                    task.limit_var.set("10")
 
-                # Destination Folder for this task
                 out_dir = task.folder_var.get().strip()
                 if not out_dir:
                     clean_slug = re.sub(r"[^\w\-]", "_", task.keyword_var.get().strip()).strip("_")
                     out_dir = os.path.join(self._get_base_folder(), clean_slug)
                     task.folder_var.set(out_dir)
 
-                self._set_task_status(task, "MENCARI", badge_type="running")
+                self._set_task_status(
+                    task,
+                    "MENCARI...",
+                    badge_type="searching",
+                    progress_info=f"Sedang mencari {limit} dokumen...",
+                )
 
                 # Launch concurrent worker thread
                 t = threading.Thread(
@@ -1301,7 +1466,6 @@ class MomoRescribdApp(ctk.CTk):
                 task.thread = t
                 t.start()
 
-            # Switch console tabview to the first running task
             first_tab = valid_tasks[0].tab_name
             if first_tab:
                 try:
@@ -1372,20 +1536,60 @@ class MomoRescribdApp(ctk.CTk):
     # ---------------------------------------------------------------------------
     def _parallel_keyword_worker(self, task, limit, out_dir, min_delay, max_delay):
         tid = threading.get_ident()
-        # Register this thread with its private log queue
         self.stdout_router.register(tid, task.log_queue)
 
         kw = task.keyword_var.get().strip()
 
         def status_cb(stage, details):
             if stage == "MENCARI":
-                self.after(0, lambda: self._set_task_status(task, "MENCARI", badge_type="running"))
+                self.after(
+                    0,
+                    lambda: self._set_task_status(
+                        task,
+                        "MENCARI...",
+                        badge_type="searching",
+                        progress_info="Mencari dokumen di Scribd...",
+                    ),
+                )
             elif stage == "MENGUNDUH":
-                self.after(0, lambda: self._set_task_status(task, "MENGUNDUH", badge_type="downloading"))
+                cur = details.get("current", 0)
+                tot = details.get("total", limit)
+                succ = details.get("success", 0)
+                fraction = (cur / tot) if tot > 0 else 0.0
+                info_txt = f"Mengunduh {cur}/{tot} (Sukses: {succ})"
+                badge_lbl = f"UNDUH ({cur}/{tot})"
+                self.after(
+                    0,
+                    lambda: self._set_task_status(
+                        task,
+                        badge_lbl,
+                        badge_type="downloading",
+                        progress_val=fraction,
+                        progress_info=info_txt,
+                    ),
+                )
             elif stage == "SELESAI":
-                self.after(0, lambda: self._set_task_status(task, "SELESAI", badge_type="success"))
+                succ = details.get("success", 0) if isinstance(details, dict) else 0
+                self.after(
+                    0,
+                    lambda: self._set_task_status(
+                        task,
+                        "SELESAI",
+                        badge_type="success",
+                        progress_val=1.0,
+                        progress_info=f"Selesai! {succ} PDF tersimpan",
+                    ),
+                )
             elif stage == "DIHENTIKAN":
-                self.after(0, lambda: self._set_task_status(task, "DIHENTIKAN", badge_type="stopped"))
+                self.after(
+                    0,
+                    lambda: self._set_task_status(
+                        task,
+                        "DIHENTIKAN",
+                        badge_type="stopped",
+                        progress_info="Tugas dihentikan oleh pengguna.",
+                    ),
+                )
 
         try:
             stats = engine.run_keyword_task(
@@ -1400,11 +1604,30 @@ class MomoRescribdApp(ctk.CTk):
             was_stopped = stats.get("stopped", False)
             badge_type = "stopped" if was_stopped or task.stop_event.is_set() else "success"
             status_text = "DIHENTIKAN" if badge_type == "stopped" else "SELESAI"
-            self.after(0, lambda: self._set_task_status(task, status_text, badge_type=badge_type))
+            succ = stats.get("success", 0)
+            msg = "Dihentikan oleh pengguna." if badge_type == "stopped" else f"Selesai! {succ} PDF tersimpan"
+            self.after(
+                0,
+                lambda: self._set_task_status(
+                    task,
+                    status_text,
+                    badge_type=badge_type,
+                    progress_val=1.0 if badge_type == "success" else None,
+                    progress_info=msg,
+                ),
+            )
 
         except Exception as exc:
             task.log_queue.put(f"\n[ERROR] Terjadi kesalahan pada tugas '{kw}': {exc}\n")
-            self.after(0, lambda: self._set_task_status(task, "ERROR", badge_type="error"))
+            self.after(
+                0,
+                lambda: self._set_task_status(
+                    task,
+                    "ERROR",
+                    badge_type="error",
+                    progress_info=f"Kesalahan: {exc}",
+                ),
+            )
         finally:
             self.stdout_router.unregister(tid)
             self.after(0, self._update_global_ui_state)

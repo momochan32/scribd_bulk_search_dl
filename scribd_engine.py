@@ -1615,6 +1615,7 @@ def bulk_download_documents(
     max_delay=3.0,
     delay_between=None,
     stop_event=None,
+    progress_callback=None,
 ):
     """
     Download multiple documents in sequence, reusing the Chrome instance when possible.
@@ -1695,6 +1696,12 @@ def bulk_download_documents(
                 print("\n[STOP] Proses bulk download dihentikan oleh pengguna.")
                 break
 
+            if progress_callback:
+                try:
+                    progress_callback(idx, total, stats)
+                except Exception:
+                    pass
+
             print(f"\n--- [{idx}/{total}] ---")
             try:
                 saved_path, was_skipped = download_scribd_document(
@@ -1708,16 +1715,23 @@ def bulk_download_documents(
                     stats["skipped"] += 1
                 else:
                     stats["success"] += 1
-                    if idx < total and max_delay > 0:
-                        actual_delay = random.uniform(min_delay, max_delay)
-                        delay_ms = int(actual_delay * 1000)
-                        print(f"[JEDA] Waktu jeda acak {actual_delay:.2f}s ({delay_ms} ms) sebelum dokumen berikutnya...")
-                        if stop_event:
-                            if stop_event.wait(actual_delay):
-                                print("\n[STOP] Proses dihentikan saat jeda waktu.")
-                                break
-                        else:
-                            time.sleep(actual_delay)
+
+                if progress_callback:
+                    try:
+                        progress_callback(idx, total, stats)
+                    except Exception:
+                        pass
+
+                if idx < total and max_delay > 0:
+                    actual_delay = random.uniform(min_delay, max_delay)
+                    delay_ms = int(actual_delay * 1000)
+                    print(f"[JEDA] Waktu jeda acak {actual_delay:.2f}s ({delay_ms} ms) sebelum dokumen berikutnya...")
+                    if stop_event:
+                        if stop_event.wait(actual_delay):
+                            print("\n[STOP] Proses dihentikan saat jeda waktu.")
+                            break
+                    else:
+                        time.sleep(actual_delay)
 
             except KeyboardInterrupt:
                 print("\n[STOP] Proses download dihentikan.")
@@ -1726,6 +1740,11 @@ def bulk_download_documents(
                 print(f"  [ERROR] Failed to download {url}: {exc}")
                 stats["failed"] += 1
                 stats["failed_urls"].append((url, str(exc)))
+                if progress_callback:
+                    try:
+                        progress_callback(idx, total, stats)
+                    except Exception:
+                        pass
                 try:
                     driver.current_url
                 except Exception:
@@ -1836,11 +1855,20 @@ def run_keyword_task(
             status_callback("SELESAI", {"keyword": keyword, "count": 0})
         return {"total": 0, "success": 0, "skipped": 0, "failed": 0, "stopped": False}
 
-    save_search_results_file(keyword, docs, output_dir=output_dir)
-
     print(f"\n[INFO] Memulai unduh {len(docs)} dokumen untuk kata kunci '{keyword}'...")
     if status_callback:
-        status_callback("MENGUNDUH", {"keyword": keyword, "total": len(docs)})
+        status_callback("MENGUNDUH", {"keyword": keyword, "current": 0, "total": len(docs), "success": 0, "skipped": 0, "failed": 0})
+
+    def on_download_progress(cur_idx, total_docs, cur_stats):
+        if status_callback:
+            status_callback("MENGUNDUH", {
+                "keyword": keyword,
+                "current": cur_idx,
+                "total": total_docs,
+                "success": cur_stats.get("success", 0),
+                "skipped": cur_stats.get("skipped", 0),
+                "failed": cur_stats.get("failed", 0),
+            })
 
     stats = bulk_download_documents(
         docs,
@@ -1848,6 +1876,7 @@ def run_keyword_task(
         min_delay=min_delay,
         max_delay=max_delay,
         stop_event=stop_event,
+        progress_callback=on_download_progress,
     )
 
     is_stopped = bool(stop_event and stop_event.is_set())
