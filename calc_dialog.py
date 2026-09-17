@@ -20,6 +20,7 @@ from solcoat_research.calc_form import (AUTO_CONFIDENCE, FIELDS, FUEL_CHOICES, F
 from solcoat_research.calc_prefill import KnownValue, load_candidates
 from solcoat_research.calc_report import build_calc_pdf, default_filename
 from solcoat_research.calculator import calculate
+from solcoat_research.area_estimate import box, cylinder
 from solcoat_research.fx import fetch_usd_idr
 
 LOGGER = logging.getLogger("momo_rescribd")
@@ -92,7 +93,8 @@ class _FieldRow:
             self.text_var.set(self._default_text())
         else:
             self.checkbox.grid()
-            source = "kurs otomatis" if known.confidence == AUTO_CONFIDENCE else f"riset ({known.confidence})"
+            source = {AUTO_CONFIDENCE: "kurs otomatis", "estimasi": "estimasi dimensi [A]",
+                      "terverifikasi": "riset terverifikasi"}.get(known.confidence, f"riset ({known.confidence})")
             self.origin_label.configure(text=f"Diketahui dari {source}: {known.source}", text_color="#86efac")
             if self.unit_widget is not None and known.unit in FUEL_RATE_UNITS:
                 self.unit_var.set(known.unit)
@@ -152,6 +154,8 @@ class CalcAssumptionDialog(ctk.CTkToplevel):
         body.pack(fill="both", padx=12, pady=6)
         self.rows = {spec.key: _FieldRow(self, body, spec, i) for i, spec in enumerate(FIELDS)}
 
+        self._build_area_helper()
+
         self.show_price_var = tk.BooleanVar(value=False)
         ctk.CTkCheckBox(self, text="Tampilkan harga per galon di PDF (angka internal — default disembunyikan)",
                         variable=self.show_price_var, font=(self.font, 11), fg_color=SOLCOAT_GREEN,
@@ -171,6 +175,42 @@ class CalcAssumptionDialog(ctk.CTkToplevel):
         self.output = ctk.CTkTextbox(self, height=170, font=("Menlo", 11), wrap="word")
         self.output.pack(fill="both", expand=True, padx=12, pady=(0, 12))
         self._on_equipment()
+
+    def _build_area_helper(self):
+        frame = ctk.CTkFrame(self, fg_color="#111827")
+        frame.pack(fill="x", padx=12, pady=(0, 6))
+        ctk.CTkLabel(frame, text="Hitung luas dari dimensi [A]:", font=(self.font, 11, "bold")).pack(side="left", padx=8)
+        self.shape_var = tk.StringVar(value="Silinder")
+        ctk.CTkOptionMenu(frame, values=["Silinder", "Kotak"], variable=self.shape_var, width=100,
+                          fg_color="#334155", button_color="#475569").pack(side="left")
+        self.dim_vars = {}
+        for key, hint in (("a", "D / panjang (mm)"), ("b", "tinggi (mm)"), ("c", "lebar (mm, kotak)")):
+            self.dim_vars[key] = tk.StringVar()
+            ctk.CTkEntry(frame, textvariable=self.dim_vars[key], width=130, placeholder_text=hint).pack(side="left", padx=4)
+        self.caps_var = tk.BooleanVar(value=True)
+        ctk.CTkCheckBox(frame, text="Tutup/atap", variable=self.caps_var, width=90, fg_color=SOLCOAT_GREEN,
+                        hover_color=SOLCOAT_GREEN_HOVER).pack(side="left", padx=4)
+        ctk.CTkButton(frame, text="Pakai sebagai total luas", width=170, fg_color=SOLCOAT_GREEN,
+                      hover_color=SOLCOAT_GREEN_HOVER, command=self.apply_area_estimate).pack(side="left", padx=6)
+
+    def apply_area_estimate(self):
+        from solcoat_research.calc_form import parse_number
+        try:
+            a, b = (parse_number(self.dim_vars[k].get()) for k in ("a", "b"))
+            if self.shape_var.get() == "Silinder":
+                estimate = cylinder(a, b, include_ends=self.caps_var.get())
+            else:
+                estimate = box(a, parse_number(self.dim_vars["c"].get()), b, include_roof=self.caps_var.get())
+        except ValueError as exc:
+            self._set_output(f"Estimasi luas belum bisa dihitung: {exc}")
+            return
+        row = self.rows["area_total"]
+        if row.known is not None:
+            row.overwrite_var.set(True)
+            row._apply_lock()
+        row.text_var.set(_id_number(estimate.area_m2, 1))
+        self._set_output(f"Luas estimasi [A] dipakai: {estimate.formula}\n"
+                         "Ganti dengan refractory schedule / GA drawing klien bila tersedia.")
 
     # ------------------------------------------------------------------ data
     def _selected_candidate(self):

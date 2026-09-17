@@ -6,7 +6,10 @@ from contextlib import closing
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .area_estimate import DimensionFact, estimate_from_dimensions
 from .verification import ensure_schema
+
+ESTIMATE = "estimasi"
 
 MW_TO_GJ_HR = 3.6
 TON_TO_KG = 1000.0
@@ -100,10 +103,26 @@ def _equipment_known(rows) -> dict[str, KnownValue]:
                  and r["component"] in REFRACTORY_COMPONENTS)
     if area:
         known["area_total"] = _known(area, _value_std(area), "m2")
+    else:
+        estimate = _area_from_dimensions(rows)
+        if estimate:
+            known["area_total"] = estimate
     fuel_type = _fuel_hint(rows)
     if fuel_type:
         known["fuel_type"] = fuel_type
     return known
+
+
+def _area_from_dimensions(rows) -> KnownValue | None:
+    dimensions = [DimensionFact(value_mm=_value_std(r), raw=r["raw"] or "", qualifier=r["qualifier"] or "",
+                                snippet=r["snippet"] or "", page_no=r["page_no"], order=r["id"], source=_source(r))
+                  for r in rows if r["param_key"] == "dimensi" and r["std_unit"] == "mm" and _value_std(r)]
+    estimate = estimate_from_dimensions(dimensions)
+    if estimate is None:
+        return None
+    source = f"{estimate.shape}: {estimate.formula}; dimensi dari {', '.join(estimate.sources)}"
+    return KnownValue(value=round(estimate.area_m2, 1), unit="m2", source=source, confidence=ESTIMATE,
+                      raw=estimate.formula)
 
 
 def _fuel_hint(rows) -> KnownValue | None:
