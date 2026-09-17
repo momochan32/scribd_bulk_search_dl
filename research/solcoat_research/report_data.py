@@ -8,7 +8,7 @@ from .facts import Fact
 from .pipeline import EquipmentRecord, FactRow, ScanResult
 from .pdf_style import num
 
-CONFIDENCE_RANK = {"tinggi": 3, "sedang": 2, "rendah": 1}
+CONFIDENCE_RANK = {"terverifikasi": 4, "tinggi": 3, "sedang": 2, "rendah": 1}
 OCR_FLAG_PREFIX = "angka hasil OCR"
 MIN_FACTS_TARGET = 2
 MAX_SUMMARY_PARAMS = 7
@@ -42,6 +42,24 @@ class EquipmentView:
     score: float
 
 
+def confidence_of(row: FactRow) -> str:
+    """Fakta yang sudah dicek analis dan dinyatakan benar mengalahkan keyakinan hasil ekstraksi."""
+    return "terverifikasi" if row.verification and row.verification.is_confirmed else row.record.fact.confidence
+
+
+def rank(row: FactRow) -> int:
+    return CONFIDENCE_RANK[confidence_of(row)]
+
+
+def confidence_label(row: FactRow) -> str:
+    v = row.verification
+    return f"terverifikasi [{v.label}]" if v and v.is_confirmed else row.record.fact.confidence
+
+
+def active_facts(result: ScanResult) -> list[FactRow]:
+    return [r for r in result.facts if not r.is_rejected]
+
+
 def short_doc(name: str, width: int = 40) -> str:
     stem = re.sub(r"_\d{6,}$", "", re.sub(r"\.pdf$", "", name, flags=re.I))
     stem = re.sub(r"[-_]+", " ", stem).strip()
@@ -63,7 +81,9 @@ def fmt_number(value: float) -> str:
 STD_UNIT_LABEL = {"m2": "m²", "Nm3/jam": "Nm³/jam"}
 
 
-def fmt_std(fact: Fact) -> str:
+def fmt_std(fact: Fact, corrected: float | None = None) -> str:
+    if corrected is not None:
+        return f"{fmt_number(corrected)} {STD_UNIT_LABEL.get(fact.std_unit, fact.std_unit)} (koreksi)".strip()
     if fact.value_std is None:
         return fact.text_value or ""
     unit = STD_UNIT_LABEL.get(fact.std_unit, fact.std_unit)
@@ -83,16 +103,16 @@ def active_documents(result: ScanResult):
 
 def target_equipment(result: ScanResult) -> list[EquipmentView]:
     by_id: dict[str, list[FactRow]] = defaultdict(list)
-    for row in result.facts:
+    for row in active_facts(result):
         if row.equipment_id:
             by_id[row.equipment_id].append(row)
     views = []
     for record in result.equipment:
         rows = by_id[record.id]
-        strong = [r for r in rows if CONFIDENCE_RANK[r.record.fact.confidence] >= 2]
+        strong = [r for r in rows if rank(r) >= 2]
         if record.tier not in "AB" or len(rows) < MIN_FACTS_TARGET or not strong:
             continue
-        score = sum(CONFIDENCE_RANK[r.record.fact.confidence] for r in rows) * (2 if record.tier == "A" else 1)
+        score = sum(rank(r) for r in rows) * (2 if record.tier == "A" else 1)
         views.append(EquipmentView(record, tuple(sorted(rows, key=_row_sort_key)), score))
     return sorted(views, key=lambda v: (v.record.tier, v.record.company, -v.score))
 
@@ -104,25 +124,26 @@ def detail_equipment(views: list[EquipmentView]) -> list[EquipmentView]:
 
 def _row_sort_key(row: FactRow):
     f = row.record.fact
-    return (-CONFIDENCE_RANK[f.confidence], f.category, f.param_key, row.doc_name, f.page_no)
+    return (-rank(row), f.category, f.param_key, row.doc_name, f.page_no)
 
 
 def key_summary(view: EquipmentView) -> str:
     best: dict[str, FactRow] = {}
     for row in view.rows:
         f = row.record.fact
-        if f.param_key == "atribut" or CONFIDENCE_RANK[f.confidence] < 2:
+        if f.param_key == "atribut" or rank(row) < 2:
             continue
         current = best.get(f.param_key)
         if current is None or (f.param_key in MAX_VALUE_PARAMS and f.value_std > current.record.fact.value_std):
             best[f.param_key] = row
-    parts = [f"{r.record.fact.param_label.split(' /')[0].split(' (')[0]}: {fmt_std(r.record.fact)}"
+    parts = [f"{r.record.fact.param_label.split(' /')[0].split(' (')[0]}: "
+             f"{fmt_std(r.record.fact, r.verification.corrected_value if r.verification else None)}"
              for r in list(best.values())[:MAX_SUMMARY_PARAMS]]
     return "; ".join(parts) or "hanya fakta keyakinan rendah"
 
 
 def coverage(view: EquipmentView) -> list[bool]:
-    params = {r.record.fact.param_key for r in view.rows if CONFIDENCE_RANK[r.record.fact.confidence] >= 2}
+    params = {r.record.fact.param_key for r in view.rows if rank(r) >= 2}
     has_refractory = any(r.record.fact.equipment and r.record.fact.equipment.component == "Refraktori / Lining"
                          for r in view.rows)
     return [bool(params & set(keys)) or (label == "Refraktori" and has_refractory) for label, keys in SOLCOAT_NEEDS]
@@ -131,7 +152,7 @@ def coverage(view: EquipmentView) -> list[bool]:
 def commercial_rows(result: ScanResult) -> list[FactRow]:
     relevant = {a.path for a in active_documents(result) if a.relevance != "tidak relevan"}
     seen, rows = set(), []
-    for row in result.facts:
+    for row in active_facts(result):
         f = row.record.fact
         if row.doc_path not in relevant or f.param_key not in COMMERCIAL_PARAMS or display_flags(f):
             continue
@@ -163,8 +184,8 @@ def strategic_rows(result: ScanResult) -> list[tuple[str, str, str]]:
 
 def verification_rows(result: ScanResult, views: list[EquipmentView]) -> list[FactRow]:
     target_ids = {v.record.id for v in views}
-    rows = [r for r in result.facts
+    rows = [r for r in active_facts(result)
             if (r.equipment_id in target_ids or r.record.fact.param_key in COMMERCIAL_PARAMS)
-            and display_flags(r.record.fact)]
+            and display_flags(r.record.fact) and not (r.verification and r.verification.is_confirmed)]
     rows.sort(key=lambda r: (not any("berbeda antar sumber" in f for f in r.record.fact.flags), r.doc_name))
     return rows[:MAX_VERIFY_ROWS]

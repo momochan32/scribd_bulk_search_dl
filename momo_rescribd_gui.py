@@ -383,7 +383,7 @@ class MomoRescribdApp(ctk.CTk):
         self.global_status_badge.pack(anchor="e", pady=(4, 0))
 
     def _build_tabs(self, parent):
-        self.tabview = ctk.CTkTabview(parent, height=290, corner_radius=10)
+        self.tabview = ctk.CTkTabview(parent, height=320, corner_radius=10)
         self.tabview.pack(fill="x", pady=(0, 10))
 
         # Tab 1: Parallel Keyword Tasks

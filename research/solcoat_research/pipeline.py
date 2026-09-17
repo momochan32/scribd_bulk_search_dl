@@ -15,6 +15,7 @@ from .analyze import DocumentAnalysis, FactRecord, analyze_document, text_finger
 from .extract import DocumentText, OcrSettings, extract_document, file_sha256
 from .lexicon import load_lexicon
 from .validate import conflict_flags
+from .verification import UNVERIFIED, Verification, fingerprint, load_verifications
 
 NEAR_DUPLICATE_OVERLAP = 0.9
 
@@ -64,6 +65,17 @@ class FactRow:
     source_grade: str
     record: FactRecord
     equipment_id: str | None
+    doc_sha256: str = ""
+    verification: Verification | None = None
+
+    @property
+    def fingerprint(self) -> str:
+        f = self.record.fact
+        return fingerprint(self.doc_sha256, f.page_no, f.param_key, f.raw)
+
+    @property
+    def is_rejected(self) -> bool:
+        return bool(self.verification and self.verification.is_rejected)
 
 
 @dataclass(frozen=True)
@@ -197,12 +209,16 @@ def merge_untagged(ids: set[str]) -> dict[str, str]:
     return mapping
 
 
-def build_fact_rows(analyses: list[DocumentAnalysis]) -> list[FactRow]:
+def build_fact_rows(analyses: list[DocumentAnalysis],
+                    verifications: dict[str, Verification] | None = None) -> list[FactRow]:
     raw = [(a, r, _raw_equipment_id(r)) for a in analyses for r in a.facts]
     mapping = merge_untagged({eid for _, _, eid in raw if eid})
-    rows = [FactRow(i, a.path, a.name, a.topic, a.source_grade, r, mapping.get(eid, eid))
+    rows = [FactRow(i, a.path, a.name, a.topic, a.source_grade, r, mapping.get(eid, eid), a.sha256)
             for i, (a, r, eid) in enumerate(raw, 1)]
-    conflicts = conflict_flags([(row.row_id, row.equipment_id, row.doc_name, row.record.fact) for row in rows])
+    if verifications:
+        rows = [replace(row, verification=verifications.get(row.fingerprint)) for row in rows]
+    conflicts = conflict_flags([(row.row_id, row.equipment_id, row.doc_name, row.record.fact)
+                                for row in rows if not row.is_rejected])
     return [
         replace(row, record=replace(row.record, fact=replace(
             row.record.fact, flags=row.record.fact.flags + (conflicts[row.row_id],))))
@@ -262,7 +278,10 @@ def _fact_row_dict(row: FactRow, doc_id: int) -> dict:
         "value_max": f.value_max, "unit": f.unit, "value_std": f.value_std, "value_max_std": f.value_max_std,
         "std_unit": f.std_unit, "text_value": f.text_value, "qualifier": f.qualifier, "plant": f.plant,
         "method": f.method, "confidence": f.confidence, "page_method": row.record.page_method,
-        "flags": list(f.flags), "status": "belum diverifikasi", "snippet": f.snippet,
+        "flags": list(f.flags), "status": row.verification.status if row.verification else UNVERIFIED,
+        "snippet": f.snippet, "fingerprint": row.fingerprint,
+        "label": row.verification.label if row.verification else None,
+        "corrected_value": row.verification.corrected_value if row.verification else None,
     }
 
 
@@ -283,7 +302,7 @@ def run_scan(config: ScanConfig, log: Callable[[str], None] = _log,
             analyses.append(analyze_document(doc, config.input_dir, lexicon))
             _report(progress, "analyze", index / len(docs), f"{index}/{len(docs)} dokumen")
         kept, near_dups = find_near_duplicates(analyses)
-        rows = build_fact_rows(kept)
+        rows = build_fact_rows(kept, load_verifications(conn))
         result = ScanResult(
             config=config, created_at=datetime.now(), documents=tuple(analyses),
             duplicates=tuple(exact_dups + near_dups), facts=tuple(rows), equipment=tuple(build_equipment(rows)),

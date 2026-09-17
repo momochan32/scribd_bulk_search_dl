@@ -22,6 +22,8 @@ FUEL_RATE_UNITS = ("Nm3/hr", "kg/hr")
 PAYBACK_TOO_SLOW_MONTHS = 24
 PAYBACK_TOO_FAST_MONTHS = 6
 AUTO_CONFIDENCE = "otomatis"
+VERIFIED_CONFIDENCE = "terverifikasi"
+ESTIMATE_CONFIDENCE = "estimasi"
 
 
 @dataclass(frozen=True)
@@ -138,7 +140,8 @@ def _parse(spec: FieldSpec, text: str) -> float | str | None:
 def resolve_field(spec: FieldSpec, field_input: FieldInput) -> ResolvedValue:
     known = field_input.known
     if known is not None and not field_input.overwrite:
-        origin = "kurs otomatis" if known.confidence == AUTO_CONFIDENCE else f"riset: {known.source}"
+        origin = {AUTO_CONFIDENCE: "kurs otomatis", VERIFIED_CONFIDENCE: f"riset terverifikasi: {known.source}",
+                  ESTIMATE_CONFIDENCE: f"estimasi [A]: {known.source}"}.get(known.confidence, f"riset: {known.source}")
         return ResolvedValue(spec.key, spec.label, known.value, known.unit or spec.unit, origin)
     value = _parse(spec, field_input.text)
     if known is not None and value is None:
@@ -167,7 +170,9 @@ def _warnings(values: dict[str, ResolvedValue], candidate: EquipmentCandidate | 
     if (values["fiber_share"].value or 0) > 0:
         notes.append("Substrat ceramic fiber: baseline emisivitas lebih tinggi (0,74–0,78 vs 0,50–0,59 castable), "
                      "sehingga selisih emisivitas (delta-e) hanya sekitar separuh dan manfaatnya lebih kecil.")
-    if any(v.origin.startswith("riset") for v in values.values()):
+    if any(v.origin.startswith("estimasi") for v in values.values()):
+        notes.append("Luas hasil estimasi geometri dari dimensi [A] — ganti dengan refractory schedule / GA drawing klien.")
+    if any(v.origin.startswith("riset:") for v in values.values()):
         notes.append("Nilai bertanda 'riset' berasal dari ekstraksi otomatis dan belum diverifikasi ke halaman sumber.")
     return notes
 

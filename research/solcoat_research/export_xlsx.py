@@ -39,7 +39,10 @@ def _fact_rows(result: ScanResult) -> list[list]:
             eq.tier if eq else None, eq.component if eq else None, f.category, f.param_label, f.raw, f.value,
             f.value_max, f.unit, f.value_std, f.value_max_std, f.std_unit, f.text_value, f.qualifier, f.confidence,
             f.method, r.record.page_method, r.doc_name, f.page_no, r.source_grade, "; ".join(f.flags),
-            "belum diverifikasi", f.snippet,
+            r.verification.status if r.verification else "belum diverifikasi",
+            r.verification.label if r.verification else None,
+            r.verification.corrected_value if r.verification else None,
+            r.verification.note if r.verification else None, f.snippet,
         ])
     return rows
 
@@ -62,12 +65,13 @@ def write_xlsx(result: ScanResult, path: Path) -> Path:
     _sheet(wb, "Fakta", ["ID", "Perusahaan", "Pabrik", "Peralatan", "Tag", "Tier", "Komponen", "Kategori",
                          "Parameter", "Nilai asli", "Nilai", "Nilai maks", "Satuan asli", "Nilai baku",
                          "Nilai baku maks", "Satuan baku", "Teks", "Kualifier", "Keyakinan", "Metode relasi",
-                         "Metode halaman", "Dokumen", "Halaman", "Grade sumber", "Catatan", "Status", "Kutipan"],
+                         "Metode halaman", "Dokumen", "Halaman", "Grade sumber", "Catatan", "Status", "Label",
+                         "Koreksi (satuan baku)", "Catatan verifikasi", "Kutipan"],
            _fact_rows(result))
     _sheet(wb, "Perlu_Verifikasi", ["Peralatan", "Parameter", "Nilai asli", "Masalah", "Dokumen", "Halaman"],
            [[(r.record.fact.equipment.label if r.record.fact.equipment else ""), r.record.fact.param_label,
              r.record.fact.raw, "; ".join(rd.display_flags(r.record.fact, include_ocr=True)), r.doc_name,
-             r.record.fact.page_no] for r in result.facts if r.record.fact.flags])
+             r.record.fact.page_no] for r in result.facts if r.record.fact.flags and r.verification is None])
     _sheet(wb, "Konteks_Strategis", ["Dokumen", "Halaman", "Kata kunci", "Kalimat"],
            [[a.name, pg, kw, s] for a in rd.active_documents(result) for pg, kw, s in a.strategic])
     _sheet(wb, "Duplikat", ["Dokumen", "Duplikat dari", "Alasan"],

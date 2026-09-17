@@ -6,6 +6,7 @@ from contextlib import closing
 from pathlib import Path
 
 from .extract import EXTRACTOR_VERSION, DocumentText, PageText
+from .verification import SCHEMA as VERIFICATION_SCHEMA
 
 SCHEMA_CACHE = """
 CREATE TABLE IF NOT EXISTS page_cache (
@@ -31,7 +32,8 @@ CREATE TABLE facts (
     id INTEGER PRIMARY KEY, doc_id INTEGER, page_no INTEGER, equipment_id TEXT, component TEXT,
     param_key TEXT, param_label TEXT, category TEXT, kind TEXT, raw TEXT, value REAL, value_max REAL,
     unit TEXT, value_std REAL, value_max_std REAL, std_unit TEXT, text_value TEXT, qualifier TEXT,
-    plant TEXT, method TEXT, confidence TEXT, page_method TEXT, flags TEXT, status TEXT, snippet TEXT);
+    plant TEXT, method TEXT, confidence TEXT, page_method TEXT, flags TEXT, status TEXT, snippet TEXT,
+    fingerprint TEXT, label TEXT, corrected_value REAL);
 CREATE TABLE strategic (doc_id INTEGER, page_no INTEGER, keyword TEXT, sentence TEXT);
 """
 
@@ -40,6 +42,7 @@ def connect(db_path: Path) -> sqlite3.Connection:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.executescript(SCHEMA_CACHE)
+    conn.executescript(VERIFICATION_SCHEMA)
     return conn
 
 

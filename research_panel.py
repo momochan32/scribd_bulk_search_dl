@@ -121,9 +121,18 @@ class ResearchPanel:
         self.btn_xlsx = self._button(actions, "Buka Excel", lambda: self._open("xlsx"), width=90, state="disabled")
         self.btn_xlsx.pack(side="left", padx=(0, 6))
         self.btn_folder = self._button(actions, "Buka Folder", lambda: self._open("folder"), width=96, state="disabled")
-        self.btn_folder.pack(side="left", padx=(0, 12))
-        self.btn_calc = self._button(actions, "Hitung dengan Asumsi", self.open_calculator, width=160, primary=True)
-        self.btn_calc.pack(side="left")
+        self.btn_folder.pack(side="left")
+
+        tools = ctk.CTkFrame(tab, fg_color="transparent")
+        tools.pack(fill="x", pady=(0, 6))
+        ctk.CTkLabel(tools, text="Alat analis:", font=(self.font, 11, "bold"), text_color="#cbd5e1", width=120,
+                     anchor="w").pack(side="left")
+        self.btn_verify = self._button(tools, "Verifikasi Fakta", self.open_verifier, width=130, primary=True)
+        self.btn_verify.pack(side="left", padx=(0, 6))
+        self.btn_calc = self._button(tools, "Hitung dengan Asumsi", self.open_calculator, width=160, primary=True)
+        self.btn_calc.pack(side="left", padx=(0, 6))
+        self.btn_pltu = self._button(tools, "Mode PLTU", self.open_pltu, width=110, primary=True)
+        self.btn_pltu.pack(side="left")
 
         progress_row = ctk.CTkFrame(tab, fg_color="transparent")
         progress_row.pack(fill="x", pady=(0, 2))
@@ -199,18 +208,43 @@ class ResearchPanel:
             self._log("[STOP] Menghentikan riset setelah langkah yang sedang berjalan…")
             self.btn_stop.configure(state="disabled", text="Menghentikan")
 
-    def open_calculator(self):
-        try:
-            from calc_dialog import CalcAssumptionDialog
-        except ImportError as exc:
-            LOGGER.error("Calculator dependencies missing: %s", exc)
-            messagebox.showerror("Paket Belum Terpasang", f"{MISSING_DEPS_MESSAGE}\n\nDetail: {exc}")
-            return
+    def _research_db(self) -> tuple[Path, Path]:
         output_dir = self._output_dir() or Path(self.app._get_base_folder())
-        db_path = self.outputs.db if self.outputs else output_dir / "research.db"
+        return output_dir, (self.outputs.db if self.outputs else output_dir / "research.db")
+
+    def _import_dialog(self, module: str, name: str):
+        try:
+            return getattr(__import__(module), name)
+        except ImportError as exc:
+            LOGGER.error("Dialog %s dependencies missing: %s", module, exc)
+            messagebox.showerror("Paket Belum Terpasang", f"{MISSING_DEPS_MESSAGE}\n\nDetail: {exc}")
+            return None
+
+    def open_calculator(self):
+        dialog = self._import_dialog("calc_dialog", "CalcAssumptionDialog")
+        if dialog is None:
+            return None
+        output_dir, db_path = self._research_db()
         if self.is_running():
             messagebox.showinfo("Riset Masih Berjalan", "Kalkulator memakai hasil riset terakhir yang sudah selesai.")
-        return CalcAssumptionDialog(self.app, db_path if db_path.exists() else None, output_dir, self.font)
+        return dialog(self.app, db_path if db_path.exists() else None, output_dir, self.font)
+
+    def open_verifier(self):
+        dialog = self._import_dialog("verify_dialog", "VerifyDialog")
+        if dialog is None:
+            return None
+        _, db_path = self._research_db()
+        if not db_path.exists():
+            messagebox.showinfo("Belum Ada Hasil Riset", "Jalankan 'Mulai Riset' dulu untuk folder sumber ini.")
+            return None
+        return dialog(self.app, db_path, self.font)
+
+    def open_pltu(self):
+        dialog = self._import_dialog("pltu_dialog", "PltuDialog")
+        if dialog is None:
+            return None
+        output_dir, _ = self._research_db()
+        return dialog(self.app, output_dir, self.font)
 
     def poll(self):
         """Dipanggil loop polling GUI (thread utama): log, progres + timer, dan pembaruan UI dari pekerja."""

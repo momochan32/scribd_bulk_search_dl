@@ -27,18 +27,21 @@ def _kpis(result: ScanResult, views) -> list:
     pages = sum(a.page_count for a in docs)
     ocr = sum(a.ocr_pages for a in docs)
     relevant = sum(a.relevance in ("tinggi", "sedang") for a in docs)
-    strong = sum(rd.CONFIDENCE_RANK[r.record.fact.confidence] >= 2 for r in result.facts)
+    active = rd.active_facts(result)
+    strong = sum(rd.rank(r) >= 2 for r in active)
+    verified = sum(rd.rank(r) == rd.CONFIDENCE_RANK["terverifikasi"] for r in active)
     return [kpirow([
         (num(len(docs)), "dokumen unik dianalisis"),
         (num(pages), f"halaman dibaca ({num(ocr)} via OCR)"),
         (num(relevant), "dokumen relevan (tinggi/sedang)"),
         (num(sum(v.record.tier == "A" for v in views)), "peralatan target tier A"),
-        (num(strong), "fakta keyakinan tinggi/sedang"),
+        (num(strong), f"fakta tinggi/sedang ({num(verified)} terverifikasi)"),
     ]), Spacer(1, 6)]
 
 
 def _how_to_read() -> list:
     rows = [[_hdr("Istilah"), _hdr("Arti")]] + [[P(f"<b>{a}</b>", st_c), _c(b)] for a, b in (
+        ("Terverifikasi [U]/[V]/[A]", "Sudah dicocokkan analis ke halaman sumber lewat menu Verifikasi Fakta. Fakta yang ditandai salah tidak dipakai di laporan ini."),
         ("Keyakinan tinggi", "Nilai dari blok spesifikasi 'Kunci : nilai' tepat di bawah judul peralatan."),
         ("Keyakinan sedang", "Nama peralatan disebut di kalimat yang sama dengan angkanya."),
         ("Keyakinan rendah", "Peralatan disimpulkan dari konteks terdekat. Hanya di Excel, kecuali untuk melengkapi."),
@@ -47,16 +50,16 @@ def _how_to_read() -> list:
         ("Nilai baku", "Satuan diseragamkan: °C, bar, MW, mm, m², Nm³/jam, ton/jam. Nilai asli tetap dicantumkan."),
     )]
     return [H("1 - Cara membaca laporan ini"), grid(rows, [110, CW - 110]), Spacer(1, 5), callout(
-        "<b>Status seluruh angka: belum diverifikasi.</b> Tidak ada angka di laporan ini yang boleh diberi label [U] "
-        "sebelum dicocokkan ke halaman sumber. Angka dari laporan KP mahasiswa diperlakukan sebagai sumber sekunder; "
+        "<b>Angka tanpa tanda 'terverifikasi' belum dicek.</b> Hanya angka yang sudah diverifikasi analis yang "
+        "membawa label [U]/[V]/[A]. Angka dari laporan KP mahasiswa diperlakukan sebagai sumber sekunder; "
         "angka OCR wajib dicek ke gambar halaman aslinya.")]
 
 
 def _inventory(result: ScanResult) -> list:
     fact_counts: dict[str, int] = {}
-    for row in result.facts:
+    for row in rd.active_facts(result):
         eq = row.record.fact.equipment
-        if eq and eq.tier in "AB" and rd.CONFIDENCE_RANK[row.record.fact.confidence] >= 2:
+        if eq and eq.tier in "AB" and rd.rank(row) >= 2:
             fact_counts[row.doc_path] = fact_counts.get(row.doc_path, 0) + 1
     docs = sorted(rd.active_documents(result), key=lambda a: -a.relevance_score)
     rows = [[_hdr(h) for h in ("Dokumen", "Topik", "Jenis sumber", "Hlm / OCR", "Relevansi (skor)", "Fakta alat")]]
@@ -91,16 +94,17 @@ def _overview(views) -> list:
 
 
 def _detail_rows(view):
-    strong = [r for r in view.rows if rd.CONFIDENCE_RANK[r.record.fact.confidence] >= 2]
-    weak = [r for r in view.rows if rd.CONFIDENCE_RANK[r.record.fact.confidence] < 2][:MAX_LOW_CONFIDENCE_ROWS]
+    strong = [r for r in view.rows if rd.rank(r) >= 2]
+    weak = [r for r in view.rows if rd.rank(r) < 2][:MAX_LOW_CONFIDENCE_ROWS]
     chosen = (strong + weak)[:MAX_DETAIL_ROWS]
     rows = [[_hdr(h) for h in ("Parameter", "Nilai asli", "Nilai baku", "Kualifier / komponen", "Keyakinan",
                                "Sumber", "Catatan")]]
     for row in chosen:
         f = row.record.fact
         detail = " / ".join(x for x in (f.qualifier, f.equipment.component if f.equipment else "") if x)
-        rows.append([_c(f.param_label), _c(f.raw), _c(rd.fmt_std(f) if f.value_std is not None else ""),
-                     _c(detail), _c(f.confidence), _c(f"{rd.source_ref(row)} ({row.record.page_method})"),
+        corrected = row.verification.corrected_value if row.verification else None
+        rows.append([_c(f.param_label), _c(f.raw), _c(rd.fmt_std(f, corrected) if f.value_std is not None else ""),
+                     _c(detail), _c(rd.confidence_label(row)), _c(f"{rd.source_ref(row)} ({row.record.page_method})"),
                      _c("; ".join(rd.display_flags(f, include_ocr=True))[:140])])
     return rows, len(view.rows) - len(chosen)
 
