@@ -25,7 +25,7 @@ if os.path.isdir(_RESEARCH_DIR) and _RESEARCH_DIR not in sys.path:
 
 LOGGER = logging.getLogger("momo_rescribd")
 
-TAB_NAME = "Riset Solcoat"
+TAB_NAME = "Kesiapan Hitung Furnace"
 SOLCOAT_GREEN = "#338B34"
 SOLCOAT_GREEN_HOVER = "#1F5A20"
 MIN_FRACTION_FOR_ETA = 0.03

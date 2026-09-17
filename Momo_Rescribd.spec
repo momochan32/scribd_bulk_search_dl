@@ -18,7 +18,7 @@ hiddenimports = [
     for module in Path('research/solcoat_research').rglob('*.py')
 ] + [
     # Analyst-tool windows are imported by name from research_panel, which static analysis cannot see.
-    'calc_dialog', 'verify_dialog', 'pltu_dialog',
+    'calc_dialog', 'verify_dialog', 'pltu_dialog', 'analysis_dialogs', 'analysis_panel',
 ]
 
 # Collect all selenium, pypdf, customtkinter, and PIL modules and assets

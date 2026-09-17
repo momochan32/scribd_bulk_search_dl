@@ -41,6 +41,7 @@ class ScanConfig:
     workers: int = max(1, (os.cpu_count() or 2) - 1)
     ocr: OcrSettings = field(default_factory=OcrSettings)
     title: str | None = None
+    client_documents: bool = False
 
 
 @dataclass(frozen=True)
@@ -299,7 +300,7 @@ def run_scan(config: ScanConfig, log: Callable[[str], None] = _log,
         analyses = []
         for index, doc in enumerate(docs, start=1):
             _check_stop(stop_event)
-            analyses.append(analyze_document(doc, config.input_dir, lexicon))
+            analyses.append(analyze_document(doc, config.input_dir, lexicon, config.client_documents))
             _report(progress, "analyze", index / len(docs), f"{index}/{len(docs)} dokumen")
         kept, near_dups = find_near_duplicates(analyses)
         rows = build_fact_rows(kept, load_verifications(conn))

@@ -26,6 +26,7 @@ import customtkinter as ctk
 from PIL import Image
 
 import scribd_engine as engine
+from analysis_panel import TAB_NAME as ANALYSIS_TAB_NAME, AnalysisPanel
 from research_panel import TAB_NAME as RESEARCH_TAB_NAME, ResearchPanel
 
 
@@ -401,6 +402,10 @@ class MomoRescribdApp(ctk.CTk):
         # Tab 4: Research report from downloaded PDFs (text layer + OCR, no AI)
         self.tab_research = self.tabview.add(RESEARCH_TAB_NAME)
         self.research_panel = ResearchPanel(self, self.tab_research, FONT_FAMILY_MAIN)
+
+        # Tab 5: advanced analysis (company reports, prospects, NPV, accuracy, client documents) kept separate
+        self.tab_analysis = self.tabview.add(ANALYSIS_TAB_NAME)
+        self.analysis_panel = AnalysisPanel(self, self.tab_analysis, FONT_FAMILY_MAIN)
 
     def _build_search_tab(self, tab):
         # Top Controls Bar
@@ -1304,6 +1309,7 @@ class MomoRescribdApp(ctk.CTk):
                     pass
 
         self.research_panel.poll()
+        self.analysis_panel.poll()
 
         # Also drain solo queue if active
         if not self.solo_queue.empty():
@@ -1522,6 +1528,9 @@ class MomoRescribdApp(ctk.CTk):
 
         if active_tab_mode == RESEARCH_TAB_NAME:
             self.research_panel.start()
+            return
+        if active_tab_mode == ANALYSIS_TAB_NAME:
+            messagebox.showinfo("Analisis Lanjutan", "Pilih salah satu alat di tab Analisis Lanjutan.")
             return
 
         # Parse Global Delay Range

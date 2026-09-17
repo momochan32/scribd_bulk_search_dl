@@ -162,7 +162,7 @@ def _method() -> list:
         "<b>Normalisasi.</b> Ligatur yang hilang ('Esiensi' -> 'Efisiensi'), variasi satuan OCR (oC, kg/cm'G, Nm'/jam, m?), "
         "dan format angka Indonesia/Inggris diseragamkan. Angka yang bisa bermakna ganda ditandai.",
         "<b>Relasi.</b> Angka dikaitkan ke peralatan lewat tiga lapis: blok spesifikasi, kalimat yang sama, lalu konteks "
-        "terdekat. Perusahaan diambil dari nama pabrik (mis. Kaltim-3 -> Pupuk Kaltim) atau topik folder.",
+        "terdekat. Perusahaan diambil dari nama pabrik (nama pabrik dipetakan ke perusahaan pemiliknya) atau topik folder.",
         "<b>Batasan.</b> Tabel yang dipindai tanpa garis, gambar, grafik, dan GA drawing tidak terbaca sebagai angka. "
         "Relasi lintas halaman lemah. Script tidak memahami makna: 'desain' vs 'aktual' hanya dikenali dari kata kunci.",
         "<b>Data lengkap.</b> Excel pendamping memuat seluruh fakta (termasuk keyakinan rendah), dan research.db "

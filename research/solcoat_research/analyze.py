@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .entities import classify_source, count_companies
+from .datasheet import normalize_datasheet
 from .extract import DocumentText
 from .facts import Fact, extract_page_facts
 from .lexicon import Lexicon
@@ -97,15 +98,20 @@ def _dedupe(facts: list[FactRecord]) -> list[FactRecord]:
     return list(best.values())
 
 
-def analyze_document(doc: DocumentText, root: Path, lexicon: Lexicon) -> DocumentAnalysis:
+CLIENT_SOURCE = ("Dokumen klien (datasheet / refractory schedule)", "primer")
+
+
+def analyze_document(doc: DocumentText, root: Path, lexicon: Lexicon, client_documents: bool = False) -> DocumentAnalysis:
     path = Path(doc.path)
-    normalized = [(p, normalize_text(p.text)) for p in doc.pages]
+    prepare = (lambda text: normalize_text(normalize_datasheet(text))) if client_documents else normalize_text
+    normalized = [(p, prepare(p.text)) for p in doc.pages]
     full_text = "\n".join(text for _, text in normalized)
     doc_lang = detect_language(full_text[:LANG_SAMPLE_CHARS])
     counts = count_companies(full_text, lexicon)
     topic = topic_for(path, root)
     doc_company = resolve_company(topic, counts, lexicon)
-    source_type, grade = classify_source(path.stem, "\n".join(t for _, t in normalized[:FIRST_PAGES_FOR_SOURCE]), lexicon)
+    source_type, grade = CLIENT_SOURCE if client_documents else classify_source(
+        path.stem, "\n".join(t for _, t in normalized[:FIRST_PAGES_FOR_SOURCE]), lexicon)
 
     pages, facts, strategic = [], [], []
     carry, carry_plant = None, None

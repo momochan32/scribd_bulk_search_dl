@@ -48,11 +48,11 @@ Aplikasi ini didesain dengan antarmuka grafis (GUI) modern yang elegan dan ramah
 
 ---
 
-## 🔬 Cara Memakai Riset Solcoat
+## 🔬 Cara Memakai Tab Kesiapan Hitung Furnace & Analisis Lanjutan
 
 1. Unduh dokumen seperti biasa (mis. kata kunci "Pupuk Kaltim", "Petrokimia Gresik").
-2. Buka tab **Riset Solcoat**, pastikan *Folder PDF sumber* mengarah ke folder hasil unduhan.
-3. Klik **Mulai Riset**. Progres tampil di konsol tab *Riset Solcoat*.
+2. Buka tab **Kesiapan Hitung Furnace**, pastikan *Folder PDF sumber* mengarah ke folder hasil unduhan.
+3. Klik **Mulai Riset**. Progres tampil di konsol tab *Kesiapan Hitung Furnace*.
 4. Setelah selesai, klik **Buka Laporan PDF** atau **Buka Excel**. Hasil tersimpan di `<folder sumber>_Riset_Solcoat`.
 
 Pemindaian pertama menjalankan OCR (±2 menit untuk ±5.000 halaman); pemindaian berikutnya memakai cache dan hanya butuh belasan detik. Semua angka berstatus **belum diverifikasi** — cocokkan ke halaman sumber sebelum dipakai di dokumen klien.
@@ -63,6 +63,14 @@ Pemindaian pertama menjalankan OCR (±2 menit untuk ±5.000 halaman); pemindaian
 - **Verifikasi Fakta**: tabel semua angka hasil riset dengan pratinjau halaman sumber (nilai di-highlight). Tandai **benar/salah**, beri label **[U]/[V]/[A]**, koreksi nilai, dan catatan. Verifikasi tersimpan permanen (tidak hilang saat riset diulang); fakta salah tidak dipakai laporan maupun kalkulator, fakta terverifikasi diprioritaskan dan membawa labelnya.
 - **Estimasi luas dari dimensi**: bila luas refraktori tidak ditemukan, kalkulator menghitung luas dari dimensi alat (silinder π·D·H + tutup, atau kotak dinding + atap) sebagai asumsi **[A]** lengkap dengan rumus dan sumber halaman; tersedia juga alat hitung manual di jendela kalkulator.
 - **Mode PLTU**: laporan avoided cost 9 bagian dengan format baku Solcoat (skenario 15/30/50%, tanpa angka penghematan bahan bakar, waterwall otomatis di luar lingkup). Kinerja EAF/SOF/EFOR/NPHR per UP terisi dari Laporan Tahunan PLN NP 2025 dan terkunci (ganti lewat Overwrite); checklist dijalankan sebelum PDF `Solcoat_Calculation_<TAG>_KLIEN_<Rev>.pdf` dibuat.
+
+**Tab Analisis Lanjutan** (menu terpisah, memakai folder sumber & hasil yang sama):
+- **Laporan per Perusahaan**: PDF + Excel terpisah per klien di `<folder hasil>/Per_Perusahaan/` — dokumen, fakta, peralatan, dan kutipan klien lain tidak ikut.
+- **Skor Prospek**: urutan prospek industri dari hasil riset (alat berapi tier A, fakta terverifikasi, harga gas, intensitas energi, sinyal strategis) dan PLTU dari data PLN NP 2025 (SOF, EAF, EFOR, bonus CFB); bisa diekspor ke Excel. Bobot adalah asumsi [A].
+- **NPV Degradasi ε**: NPV, IRR, dan payback terdiskonto dengan emisivitas turun linear (default 0,98 → 0,80 dalam 7 tahun) terhadap substrat castable/fiber; konflik dengan klaim company profile dicatat di PDF.
+- **Akurasi Ekstraksi**: presisi hasil ekstraksi per tingkat keyakinan, metode relasi, metode halaman, dan parameter, dihitung dari verifikasi analis (target minimal 100 fakta).
+- **Impor Dokumen Klien**: pindai datasheet API 560 / refractory schedule klien sebagai sumber primer ke `<folder>_Riset_Klien`; baris tabel bergaya `Heat absorption, MMBtu/hr   45.20` dibaca sebagai spesifikasi (diuji dengan contoh sintetis — cocokkan dengan datasheet asli).
+- Kamus riset kini juga mengenali istilah kilang (CDU/VDU/crude heater, cracking furnace), baja (reheating/walking beam furnace, hot blast stove), dan istilah datasheet API 560.
 
 ---
 

@@ -12,6 +12,7 @@ from .pipeline import ProgressCallback, ScanConfig, run_scan
 from .report_pdf import build_pdf
 
 REPORT_FOLDER_SUFFIX = "_Riset_Solcoat"
+CLIENT_FOLDER_SUFFIX = "_Riset_Klien"
 
 
 @dataclass(frozen=True)
@@ -27,10 +28,11 @@ class ResearchOutputs:
     ocr_used: bool
 
 
-def default_output_dir(source_dir: Path) -> Path:
+def default_output_dir(source_dir: Path, client_documents: bool = False) -> Path:
     """Folder hasil di samping folder sumber, bukan di dalamnya."""
     source = Path(source_dir).expanduser().resolve()
-    return source.parent / f"{source.name}{REPORT_FOLDER_SUFFIX}"
+    suffix = CLIENT_FOLDER_SUFFIX if client_documents else REPORT_FOLDER_SUFFIX
+    return source.parent / f"{source.name}{suffix}"
 
 
 def _resolve_ocr(use_ocr: bool, log: Callable[[str], None]) -> OcrSettings:
@@ -46,7 +48,7 @@ def _resolve_ocr(use_ocr: bool, log: Callable[[str], None]) -> OcrSettings:
 def run_research(source_dir: Path, output_dir: Path | None = None, *, use_ocr: bool = True,
                  workers: int | None = None, log: Callable[[str], None] = print,
                  stop_event: threading.Event | None = None,
-                 progress: ProgressCallback | None = None) -> ResearchOutputs:
+                 progress: ProgressCallback | None = None, client_documents: bool = False) -> ResearchOutputs:
     def report(label: str, fraction: float, detail: str = "") -> None:
         if progress is not None:
             progress(label, fraction, detail)
@@ -54,11 +56,12 @@ def run_research(source_dir: Path, output_dir: Path | None = None, *, use_ocr: b
     source = Path(source_dir).expanduser().resolve()
     if not source.is_dir():
         raise FileNotFoundError(f"Folder sumber tidak ditemukan: {source}")
-    out = Path(output_dir).expanduser().resolve() if output_dir else default_output_dir(source)
+    out = Path(output_dir).expanduser().resolve() if output_dir else default_output_dir(source, client_documents)
 
     report("Menyiapkan data OCR", 0.0)
     ocr = _resolve_ocr(use_ocr, log)
-    config = ScanConfig(input_dir=source, out_dir=out, ocr=ocr, **({"workers": workers} if workers else {}))
+    config = ScanConfig(input_dir=source, out_dir=out, ocr=ocr, client_documents=client_documents,
+                        **({"workers": workers} if workers else {}))
     result = run_scan(config, log=log, stop_event=stop_event, progress=progress)
 
     stamp = result.created_at.strftime("%Y%m%d_%H%M")

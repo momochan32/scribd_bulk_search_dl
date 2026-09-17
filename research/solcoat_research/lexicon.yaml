@@ -42,7 +42,17 @@ equipment:
     label: Fired Heater
     tier: A
     role: unit
-    synonyms: ['fired\s+heater', 'process\s+heater', 'charge\s+heater', 'start[-\s]?up\s+heater', 'direct[-\s]fired\s+heater', 'fire\s+heater']
+    synonyms: ['fired\s+heater', 'process\s+heater', 'charge\s+heater', 'start[-\s]?up\s+heater', 'direct[-\s]fired\s+heater', 'fire\s+heater', 'crude\s+(?:oil\s+)?(?:charge\s+)?heater', '(?:CDU|VDU|HVU|CCR|NHT|DHT)\s+(?:heater|furnace)', 'vacuum\s+heater', 'reboiler\s+(?:heater|furnace)', 'platformer\s+heater', 'hydrotreater\s+heater', 'visbreaker\s+heater', 'coker\s+heater']
+  - key: cracking_furnace
+    label: Cracking / Pyrolysis Furnace
+    tier: A
+    role: unit
+    synonyms: ['cracking\s+furnace', 'ethylene\s+(?:cracking\s+)?furnace', 'pyrolysis\s+furnace', 'steam\s+cracker', 'naphtha\s+cracker']
+  - key: steel_furnace
+    label: Reheating / Heat Treatment Furnace (baja)
+    tier: A
+    role: unit
+    synonyms: ['reheating\s+furnace', 'walking\s+beam\s+furnace', 'pusher\s+(?:type\s+)?furnace', 'annealing\s+furnace', 'heat\s+treatment\s+furnace', 'soaking\s+pit', 'ladle\s+(?:pre)?heater', 'hot\s+blast\s+stove', 'tundish\s+(?:pre)?heater']
   - key: incinerator
     label: Incinerator / Thermal Oxidizer
     tier: A
@@ -165,13 +175,13 @@ parameters:
     category: termal
     kinds: [duty, daya]
     range: [0.01, 3000]
-    synonyms: ['heat\s+duty', 'absorbed\s+duty', 'fired\s+duty', 'duty', 'heat\s+release', 'heat\s+load', 'beban\s+(?:panas|termal)', 'panas\s+(?:yang\s+)?(?:diserap|dilepas|dibutuhkan)', 'kebutuhan\s+panas']
+    synonyms: ['heat\s+duty', 'absorbed\s+duty', 'fired\s+duty', 'heat\s+absorb(?:ed|tion)', 'absorbed\s+heat', 'process\s+duty', 'duty', 'heat\s+release', 'heat\s+load', 'beban\s+(?:panas|termal)', 'panas\s+(?:yang\s+)?(?:diserap|dilepas|dibutuhkan)', 'kebutuhan\s+panas']
   - key: luas_permukaan
     label: Luas permukaan / area
     category: dimensi
     kinds: [luas]
     range: [0.01, 500000]
-    synonyms: ['surface\s+area', 'heat\s+transfer\s+area', 'luas(?:\s+(?:permukaan|area|bidang|lahan))?', 'luasan', 'area']
+    synonyms: ['surface\s+area', 'heat\s+transfer\s+area', 'bare\s+tube\s+area', 'extended\s+surface\s+area', 'radiant\s+(?:section\s+)?area', 'refractory\s+area', 'hot\s+face\s+area', 'luas(?:\s+(?:permukaan|area|bidang|lahan))?', 'luasan', 'area']
   - key: tebal_lining
     label: Tebal refraktori / lining
     category: refraktori
@@ -278,6 +288,10 @@ companies:
   - {name: PLN, type: klien, synonyms: ['PLN', 'perusahaan\s+listrik\s+negara']}
   - {name: Krakatau Steel, type: klien, synonyms: ['krakatau\s+steel']}
   - {name: Chandra Asri, type: klien, synonyms: ['chandra\s+asri']}
+  - {name: Kilang Pertamina Internasional, type: klien, synonyms: ['kilang\s+pertamina\s+internasional']}
+  - {name: Krakatau Posco, type: klien, synonyms: ['krakatau\s+posco']}
+  - {name: Gunung Raja Paksi, type: klien, synonyms: ['gunung\s+raja\s+paksi']}
+  - {name: Trans-Pacific Petrochemical Indotama, type: klien, synonyms: ['TPPI', 'trans[-\s]pacific\s+petrochemical']}
   - {name: Kaltim Methanol Industri, type: klien, synonyms: ['kaltim\s+methanol', 'KMI']}
   - {name: Kaltim Parna Industri, type: klien, synonyms: ['kaltim\s+parna']}
   - {name: Haldor Topsoe, type: licensor, synonyms: ['haldor\s+tops(?:ø|o)e', 'topsoe']}
@@ -291,6 +305,8 @@ companies:
 plants:
   - {pattern: 'Kaltim[-\s]?[1-5][AB]?', company: Pupuk Kalimantan Timur}
   - {pattern: 'POPKA', company: Pupuk Kalimantan Timur}
+  - {pattern: 'RU[-\s]?(?:II|III|IV|V|VI|VII)', company: Pertamina}
+  - {pattern: 'Kilang\s+(?:Dumai|Plaju|Cilacap|Balikpapan|Balongan|Kasim)', company: Pertamina}
   - {pattern: 'Pusri[-\s]?(?:I{1,3}B?|IV|[1-4]B?)', company: Pupuk Sriwidjaja}
   - {pattern: 'Kujang[-\s]?1[AB]', company: Pupuk Kujang}
   - {pattern: 'Amurea\s+I{1,2}', company: Petrokimia Gresik}
@@ -298,6 +314,7 @@ plants:
   - {pattern: 'Pabrik[-\s]?(?:1A|[1-5][AB]?|I{1,3}[AB]?|IV|V)', company: ''}
 
 source_types:
+  - {label: Datasheet / dokumen teknis, grade: primer, patterns: ['data\s*sheet', 'API\s*560', 'refractory\s+schedule']}
   - {label: Laporan kerja praktik (mahasiswa), grade: sekunder, patterns: ['kerja\s+praktek', 'kerja\s+praktik', 'praktek\s+kerja', 'praktik\s+kerja', '\bKP\b', '\bPKL\b', 'magang']}
   - {label: Laporan tahunan perusahaan, grade: primer, patterns: ['annual\s+report', 'laporan\s+tahunan']}
   - {label: Laporan keberlanjutan, grade: primer, patterns: ['sustainability\s+report', 'laporan\s+keberlanjutan', '\bSR\b']}
