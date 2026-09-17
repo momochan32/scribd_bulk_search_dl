@@ -97,3 +97,14 @@ def test_cli_writes_pdf_and_excel(corpus: Path, tmp_path: Path, capsys):
 def test_cli_reports_missing_folder(tmp_path: Path):
     assert main(["scan", str(tmp_path / "tidak-ada")]) == 2
     assert main(["search", str(tmp_path), "apa"]) == 2
+
+
+def test_table_heading_with_pipe_characters_does_not_break_scan(tmp_path: Path):
+    """Regresi: baris tabel OCR 'A | B' sebelum 'Fungsi :' menjadi nama alat dan merusak ID peralatan."""
+    root = tmp_path / "Pupuk Iskandar Muda"
+    root.mkdir()
+    _text_pdf(root / "tabel.pdf", "Unit | Spesifikasi\nFungsi : memanaskan gas proses\nTemperatur : 300 °C\n"
+                                  "Tekanan : 20 kg/cm2")
+    result = run_scan(ScanConfig(root, tmp_path / "out", workers=1, ocr=OcrSettings(enabled=False)), log=lambda _: None)
+    assert result.facts
+    assert all(len(e.id.split("|")) == 4 for e in result.equipment)

@@ -189,7 +189,9 @@ def _raw_equipment_id(record: FactRecord) -> str | None:
     eq = record.fact.equipment
     if eq is None:
         return None
-    return "|".join((record.company, record.fact.plant or "-", eq.key, eq.tag or "-"))
+    parts = (record.company, record.fact.plant or "-", eq.key, eq.tag or "-")
+    # '|' is the id separator; names read from OCR'd tables can contain it and would break id.split("|").
+    return "|".join((part or "-").replace("|", "/") for part in parts)
 
 
 def merge_untagged(ids: set[str]) -> dict[str, str]:

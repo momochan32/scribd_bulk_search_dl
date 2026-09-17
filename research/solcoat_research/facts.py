@@ -135,6 +135,8 @@ def _implicit_heading(lines: list, idx: int, lexicon_mentions) -> Scope | None:
     name = _NUMBERING.sub("", prev.text).strip(" :")
     if not name or len(name.split()) > IMPLICIT_HEADING_MAX_WORDS or re.search(r"\d{2,}", name):
         return None
+    if re.search(r"[^\w\s()/&.,'-]", name):  # table separators and OCR noise are not equipment names
+        return None
     if lexicon_mentions:
         m = next((x for x in lexicon_mentions if x.role == "unit"), lexicon_mentions[0])
         return Scope(m.key, m.label, m.tier, m.tag)
