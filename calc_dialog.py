@@ -43,8 +43,8 @@ def _format_known(value) -> str:
     return FUEL_CHOICES.get(value, str(value))
 
 
-class _FieldRow:
-    """Satu baris: label | isian | satuan | asal nilai | Overwrite."""
+class FieldRow:
+    """Satu baris: label | isian | satuan | asal nilai | Overwrite. Dipakai juga oleh jendela Mode PLTU."""
 
     def __init__(self, dialog, parent, spec, row_index):
         self.spec = spec
@@ -94,7 +94,8 @@ class _FieldRow:
         else:
             self.checkbox.grid()
             source = {AUTO_CONFIDENCE: "kurs otomatis", "estimasi": "estimasi dimensi [A]",
-                      "terverifikasi": "riset terverifikasi"}.get(known.confidence, f"riset ({known.confidence})")
+                      "terverifikasi": "riset terverifikasi", "sumber primer": "sumber primer [U]"}.get(
+                known.confidence, f"riset ({known.confidence})")
             self.origin_label.configure(text=f"Diketahui dari {source}: {known.source}", text_color="#86efac")
             if self.unit_widget is not None and known.unit in FUEL_RATE_UNITS:
                 self.unit_var.set(known.unit)
@@ -152,7 +153,7 @@ class CalcAssumptionDialog(ctk.CTkToplevel):
 
         body = ctk.CTkScrollableFrame(self, height=380)
         body.pack(fill="both", padx=12, pady=6)
-        self.rows = {spec.key: _FieldRow(self, body, spec, i) for i, spec in enumerate(FIELDS)}
+        self.rows = {spec.key: FieldRow(self, body, spec, i) for i, spec in enumerate(FIELDS)}
 
         self._build_area_helper()
 

@@ -24,6 +24,7 @@ PAYBACK_TOO_FAST_MONTHS = 6
 AUTO_CONFIDENCE = "otomatis"
 VERIFIED_CONFIDENCE = "terverifikasi"
 ESTIMATE_CONFIDENCE = "estimasi"
+PRIMARY_CONFIDENCE = "sumber primer"
 
 
 @dataclass(frozen=True)
@@ -141,7 +142,8 @@ def resolve_field(spec: FieldSpec, field_input: FieldInput) -> ResolvedValue:
     known = field_input.known
     if known is not None and not field_input.overwrite:
         origin = {AUTO_CONFIDENCE: "kurs otomatis", VERIFIED_CONFIDENCE: f"riset terverifikasi: {known.source}",
-                  ESTIMATE_CONFIDENCE: f"estimasi [A]: {known.source}"}.get(known.confidence, f"riset: {known.source}")
+                  ESTIMATE_CONFIDENCE: f"estimasi [A]: {known.source}",
+                  PRIMARY_CONFIDENCE: f"sumber primer [U]: {known.source}"}.get(known.confidence, f"riset: {known.source}")
         return ResolvedValue(spec.key, spec.label, known.value, known.unit or spec.unit, origin)
     value = _parse(spec, field_input.text)
     if known is not None and value is None:

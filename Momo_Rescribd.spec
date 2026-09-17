@@ -13,9 +13,12 @@ from PyInstaller.utils.hooks import collect_all
 # lexicon is a data file loaded next to lexicon.py, so ship it in the same folder.
 datas = [('assets', 'assets'), ('research/solcoat_research/lexicon.yaml', 'solcoat_research')]
 binaries = []
-hiddenimports = ['solcoat_research'] + [
-    f'solcoat_research.{module.stem}' for module in Path('research/solcoat_research').glob('*.py')
-    if module.stem != '__init__'
+hiddenimports = [
+    '.'.join(module.relative_to('research').with_suffix('').parts).removesuffix('.__init__')
+    for module in Path('research/solcoat_research').rglob('*.py')
+] + [
+    # Analyst-tool windows are imported by name from research_panel, which static analysis cannot see.
+    'calc_dialog', 'verify_dialog', 'pltu_dialog',
 ]
 
 # Collect all selenium, pypdf, customtkinter, and PIL modules and assets
